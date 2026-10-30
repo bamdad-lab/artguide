@@ -12,10 +12,10 @@
   --line: #2f3a40;
   --fg: #e8ebe6;
   --muted: #9aa5a3;
-  --accent: #d9b56a;      /* brass, like a gallery label plate */
-  --ok: #7fc59a;          /* verified */
-  --warn: #e3a75b;        /* ask the visitor */
-  --stop: #e07f72;        /* refuse */
+  --accent: #d9b56a;
+  --ok: #7fc59a;
+  --warn: #e3a75b;
+  --stop: #e07f72;
   --on-accent: #1a1406;
   --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
   --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -24,17 +24,12 @@
   color-scheme: dark;
 }
 html, body { height: 100%; }
-body {
-  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 * { box-sizing: border-box; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.app {
-  max-width: 440px; height: 100%; margin: 0 auto; display: flex; flex-direction: column;
-  background: var(--bg); position: relative; overflow: hidden;
-}
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 440px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }
 @media (min-width: 520px) { .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); } }
 .screen { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 18px; gap: 16px; }
@@ -44,69 +39,62 @@ button:focus-visible, input:focus-visible, label:focus-within { outline: 2px sol
 .brand i { color: var(--accent); }
 .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.1; }
-h1 { font-size: 34px; }
-h2 { font-size: 26px; }
+h1 { font-size: 34px; } h2 { font-size: 26px; }
 p { margin: 0; }
-.muted { color: var(--muted); }
-.small { font-size: 14px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px;
-  border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.muted { color: var(--muted); } .small { font-size: 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; text-align: center; }
 .btn.ghost { background: var(--panel-2); color: var(--fg); }
 .btn.block { width: 100%; }
-.iconbtn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); }
-.iconbtn svg, .btn svg { width: 20px; height: 20px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--panel-2); }
+.btn svg { width: 20px; height: 20px; flex: none; }
+.iconbtn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); flex: none; }
+.iconbtn svg { width: 20px; height: 20px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--panel-2); white-space: nowrap; }
 .chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.stop { color: var(--stop); }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.demo-banner { font-size: 12px; color: var(--muted); text-align: center; padding: 6px 12px; border-bottom: 1px solid var(--line);
+.demo-banner { font-size: 12px; color: var(--muted); text-align: center; padding-block: 6px; border-bottom: 1px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .demo-banner b { color: var(--accent); font-weight: 700; }
-
-/* venue */
-.list { display: flex; flex-direction: column; gap: 8px; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group > label, .group > .lbl { font-weight: 700; }
+.note { font-size: 13px; color: var(--muted); }
+.field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
+.field::placeholder { color: var(--muted); }
+textarea.field { min-height: 72px; resize: vertical; }
 .option { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: var(--r); background: var(--panel); border: 1px solid transparent; text-align: left; width: 100%; }
 .option[aria-pressed="true"] { border-color: var(--accent); }
 .option .grow { flex: 1; min-width: 0; }
 .option .title { font-weight: 700; }
 .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
 .option[aria-pressed="true"] .radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
-
-/* scan */
-.viewfinder { position: relative; flex: 1; min-height: 320px; border-radius: 22px; overflow: hidden; background: #0b0e0f; }
-.viewfinder canvas.wall { position: absolute; inset: 0; width: 100%; height: 100%; }
-.frame-art { position: absolute; left: 14%; right: 14%; top: 16%; bottom: 26%; box-shadow: 0 0 0 10px #2b241a, 0 0 0 12px #4a3e2c, 0 18px 40px rgba(0,0,0,.6); }
-.frame-art canvas { width: 100%; height: 100%; display: block; }
-.label-card { position: absolute; right: 8%; bottom: 9%; width: 22%; aspect-ratio: 1.5; background: #d9d6cc; border-radius: 2px; opacity: .85; }
-.label-card::before, .label-card::after { content: ""; position: absolute; left: 12%; right: 12%; height: 8%; background: #8b877c; top: 24%; }
-.label-card::after { top: 48%; right: 34%; }
-.corners { position: absolute; left: 10%; right: 10%; top: 12%; bottom: 22%; pointer-events: none; }
-.corners i { position: absolute; width: 28px; height: 28px; border: 3px solid var(--fg); opacity: .9; }
-.corners i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
-.corners i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
-.corners i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
-.corners i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
-.vf-hint { position: absolute; left: 0; right: 0; top: 14px; text-align: center; }
-.vf-hint span { background: rgba(10,13,14,.72); padding: 6px 12px; border-radius: 999px; font-size: 14px; }
-.steady { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 64%; height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); overflow: hidden; }
-.steady b { display: block; height: 100%; width: 0; background: var(--accent); }
-.scanline { position: absolute; left: 10%; right: 10%; height: 2px; background: var(--accent); box-shadow: 0 0 14px var(--accent); top: 12%; opacity: 0; }
-.scanning .scanline { opacity: 1; animation: sweep 1.2s ease-in-out infinite alternate; }
-@keyframes sweep { from { top: 12% } to { top: 78% } }
-.controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
-.shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid var(--fg); display: grid; place-items: center; }
-.shutter i { width: 60px; height: 60px; border-radius: 50%; background: var(--fg); transition: transform .15s; }
-.shutter:active i { transform: scale(.9); }
-.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; white-space: nowrap; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.seg { display: flex; padding: 4px; gap: 4px; background: var(--panel); border-radius: 999px; }
+.seg button { flex: 1; min-height: 36px; border-radius: 999px; font-size: 13px; color: var(--muted); padding: 0 6px; }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); font-weight: 700; }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .switch { position: relative; width: 44px; height: 26px; flex: none; }
 .switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--panel-2); transition: background .2s; pointer-events: none; }
 .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::after { transform: translateX(18px); background: var(--on-accent); }
-.seg { display: flex; padding: 4px; gap: 4px; background: var(--panel); border-radius: 999px; }
-.seg button { flex: 1; min-height: 36px; border-radius: 999px; font-size: 13px; color: var(--muted); padding: 0 6px; }
-.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); font-weight: 700; }
-.demo-pick { display: flex; flex-direction: column; gap: 6px; }
+
+/* scan */
+.capture { position: relative; flex: 1; min-height: 300px; border-radius: 22px; overflow: hidden; background: var(--panel); display: grid; place-items: center; text-align: center; }
+.capture img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #0b0e0f; }
+.capture .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; color: var(--muted); }
+.capture .empty svg { width: 56px; height: 56px; color: var(--accent); }
+.corners { position: absolute; inset: 9%; pointer-events: none; }
+.corners i { position: absolute; width: 28px; height: 28px; border: 3px solid var(--fg); opacity: .5; }
+.corners i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.corners i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
+.corners i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
+.corners i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.tips { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.where { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel); text-align: left; width: 100%; }
+.where .grow { min-width: 0; flex: 1; }
+.where .v { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* identifying */
 .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -117,20 +105,22 @@ p { margin: 0; }
 .steps li.done { color: var(--fg); }
 .steps li.done .mark { border-color: var(--ok); background: var(--ok); }
 .steps li.done .mark::after { content: ""; width: 6px; height: 10px; border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
-.steps li.skip .mark { border-style: dashed; }
+.steps li.fail .mark { border-color: var(--stop); }
 .steps .detail { font-size: 13px; color: var(--muted); }
 @keyframes spin { to { transform: rotate(360deg) } }
 .thumb { border-radius: 10px; overflow: hidden; background: var(--panel); }
-.thumb canvas { display: block; width: 100%; height: 100%; }
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ident-photo { aspect-ratio: 4/3; max-width: 100%; }
+.ident-photo img { object-fit: contain; background: #0b0e0f; }
 
 /* player */
 .art-hero { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
 .art-hero .thumb { aspect-ratio: 4/3.2; }
-.art-title { font-family: var(--display); font-style: italic; font-size: 26px; line-height: 1.1; text-wrap: balance; }
+.art-title { font-family: var(--display); font-style: italic; font-size: 26px; line-height: 1.1; text-wrap: balance; overflow-wrap: anywhere; }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; margin: 0; }
 .facts dt { color: var(--muted); }
-.facts dd { margin: 0; min-width: 0; }
-.mono { font-family: var(--mono); font-size: 13px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.caveat { font-size: 13px; color: var(--warn); border: 1px dashed var(--warn); border-radius: 12px; padding: 10px 12px; }
 .player { background: var(--panel); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .bar { height: 6px; border-radius: 6px; background: var(--panel-2); overflow: hidden; }
 .bar b { display: block; height: 100%; width: 0; background: var(--accent); }
@@ -142,37 +132,42 @@ p { margin: 0; }
 .transcript { display: flex; flex-direction: column; gap: 12px; }
 .para { padding: 12px 14px; border-radius: 12px; background: var(--panel); }
 .para .tag { display: block; margin-bottom: 4px; }
-.para.record { border-left: 3px solid var(--ok); }
+.para.facts-p { border-left: 3px solid var(--warn); }
 .para.gen { border-left: 3px solid var(--line); }
-.para.gap { border-left: 3px dashed var(--warn); color: var(--muted); font-size: 14px; }
+.para.gap { border-left: 3px dashed var(--muted); color: var(--muted); font-size: 14px; }
 .para.speaking { background: var(--panel-2); }
-.source { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
-.source .grow { flex: 1; min-width: 0; }
-.source a { color: var(--accent); word-break: break-all; }
 details.why { background: var(--panel); border-radius: 12px; padding: 12px 14px; }
 details.why summary { cursor: pointer; font-weight: 700; }
 details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.links a { color: var(--accent); }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .row > * { flex: 1 1 140px; }
 
+/* verdict */
+.verdict { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vgrid button { min-height: 44px; border-radius: 12px; background: var(--panel); font-size: 14px; font-weight: 700; padding: 6px 8px; }
+.vgrid button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.saved { color: var(--ok); font-size: 14px; font-weight: 700; }
+
 /* picker */
 .cands { display: flex; flex-direction: column; gap: 10px; }
-.cand { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; padding: 10px; border-radius: var(--r); background: var(--panel); text-align: left; width: 100%; }
-.cand .thumb { aspect-ratio: 4/3; }
-.cand .t { font-family: var(--display); font-style: italic; font-size: 19px; line-height: 1.15; }
+.cand { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--r); background: var(--panel); text-align: left; width: 100%; }
+.cand .t { font-family: var(--display); font-style: italic; font-size: 20px; line-height: 1.15; }
 
 /* refuse */
 .refuse-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--panel); display: grid; place-items: center; color: var(--stop); }
 .refuse-icon svg { width: 30px; height: 30px; }
 .reasons { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
 
-/* history, settings */
+/* history */
 .hist { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 10px; border-radius: var(--r); background: var(--panel); text-align: left; width: 100%; }
-.hist .thumb { aspect-ratio: 1; }
-.hist .t { font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.15; }
-.group { display: flex; flex-direction: column; gap: 8px; }
-.group > label, .group > .lbl { font-weight: 700; }
-.note { font-size: 13px; color: var(--muted); }
+.hist .thumb { aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); }
+.hist .t { font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.15; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--panel); border-radius: 12px; padding: 10px; }
+.stat b { display: block; font-family: var(--display); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
 
 /* nav */
 .nav { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: var(--bg);
@@ -187,168 +182,154 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
 </style>
 
 <div class="app" id="app">
-  <div class="demo-banner"><b>Prototype.</b> Sample artworks and text. Narration uses your phone's built-in voice.</div>
+  <div class="demo-banner"><b>Prototype.</b> Claude identifies the work from your photo. Facts are not yet checked against museum records.</div>
 
-  <!-- 1. Venue -->
+  <!-- Where are you -->
   <section class="screen" id="s-venue">
     <div class="top"><span class="brand">Gallery <i>Ear</i></span></div>
-    <div><p class="eyebrow">Step 1 of 1</p><h1>Where are you today?</h1></div>
-    <p class="muted">Pick the show you're in. The app then only matches works in that room, which makes it much more accurate.</p>
+    <div><h1>Where are you looking at art?</h1></div>
+    <p class="muted">This is saved with each scan. Later the app uses it to narrow the match to the works in your room, which is the cheapest big accuracy gain.</p>
     <div class="group">
-      <span class="lbl">Museum</span>
-      <div class="list" id="venues"></div>
-    </div>
-    <div class="group">
-      <span class="lbl">Exhibition or wing</span>
-      <div class="list" id="shows"></div>
-    </div>
-    <button class="btn block" id="start">Start listening</button>
-    <p class="note">Plug in earphones. You can change the venue any time in Settings.</p>
-  </section>
-
-  <!-- 2. Scan -->
-  <section class="screen" id="s-scan" hidden>
-    <div class="top">
-      <div><p class="eyebrow" id="venue-line">The Met · 19th-century European paintings</p></div>
-      <span class="chip" id="wifi"><span class="dot" style="color:var(--ok)"></span>Online</span>
-    </div>
-    <div class="viewfinder" id="vf">
-      <canvas class="wall" id="wall"></canvas>
-      <div class="frame-art"><canvas id="vf-art" width="420" height="330"></canvas></div>
-      <div class="label-card" aria-hidden="true"></div>
-      <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-      <div class="scanline" aria-hidden="true"></div>
-      <div class="vf-hint"><span id="vf-hint">Point at the artwork</span></div>
-      <div class="steady" id="steady" hidden><b id="steady-b"></b></div>
-    </div>
-    <div class="controls">
-      <label class="toggle" for="handsfree"><span class="switch"><input type="checkbox" id="handsfree" checked><span></span></span>Hands-free</label>
-      <button class="shutter" id="shutter" aria-label="Scan this artwork"><i></i></button>
-      <span></span>
-    </div>
-    <div class="demo-pick">
-      <span class="eyebrow">Demo: what happens on this scan</span>
-      <div class="seg" id="outcome">
-        <button data-v="match" aria-pressed="true">Clear match</button>
-        <button data-v="series" aria-pressed="false">Lookalikes</button>
-        <button data-v="unknown" aria-pressed="false">Can't tell</button>
+      <span class="lbl">Setting</span>
+      <div class="list" id="setting">
+        <button class="option" data-v="museum"><span class="radio"></span><span class="grow"><span class="title">In a museum or gallery</span></span></button>
+        <button class="option" data-v="home"><span class="radio"></span><span class="grow"><span class="title">At home</span><br><span class="small muted">A print, a book, or a picture on a screen</span></span></button>
       </div>
     </div>
+    <div class="group" id="museum-fields">
+      <label for="museum">Museum or gallery</label>
+      <input class="field" id="museum" list="museum-list" autocomplete="off" placeholder="e.g. The Metropolitan Museum of Art">
+      <datalist id="museum-list"></datalist>
+      <label for="exhibition">Exhibition, wing or room <span class="muted small">(optional)</span></label>
+      <input class="field" id="exhibition" list="exhibition-list" autocomplete="off" placeholder="e.g. Gallery 822, 19th-century paintings">
+      <datalist id="exhibition-list"></datalist>
+    </div>
+    <div class="group" id="home-fields" hidden>
+      <label for="medium-home">What are you photographing?</label>
+      <div class="seg" id="home-kind">
+        <button data-v="print" aria-pressed="false">Print or poster</button>
+        <button data-v="book" aria-pressed="false">Book</button>
+        <button data-v="screen" aria-pressed="false">Screen</button>
+      </div>
+    </div>
+    <button class="btn block" id="start">Continue</button>
+    <p class="note" id="venue-err" hidden></p>
   </section>
 
-  <!-- 3. Identifying -->
+  <!-- Scan -->
+  <section class="screen" id="s-scan" hidden>
+    <button class="where" id="where-btn"><span class="grow"><span class="eyebrow">You are at</span><br><span class="v" id="where-line"></span></span><span class="small" style="color:var(--accent)">Change</span></button>
+    <div class="capture" id="capture">
+      <div class="empty" id="cap-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+        <p>Fill the frame with the artwork, then take the photo.</p>
+      </div>
+      <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    </div>
+    <label class="btn block filebtn" for="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Take photo<input type="file" id="cam" accept="image/*" capture="environment"></label>
+    <label class="btn ghost block filebtn" for="lib">Choose from photos<input type="file" id="lib" accept="image/*"></label>
+    <ul class="tips">
+      <li>Stand straight on to avoid glare on glass.</li>
+      <li>Include the wall label if it's next to the work. It helps.</li>
+    </ul>
+    <p class="note" id="scan-unavail" hidden></p>
+  </section>
+
+  <!-- Identifying -->
   <section class="screen" id="s-ident" hidden>
-    <div class="top"><button class="iconbtn" data-back aria-label="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><span class="eyebrow">Identifying</span><span style="width:40px"></span></div>
-    <div class="thumb" style="aspect-ratio:4/3"><canvas id="ident-art" width="420" height="315"></canvas></div>
+    <div class="top"><button class="iconbtn" id="ident-cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><span class="eyebrow">Identifying</span><span style="width:40px"></span></div>
+    <div class="thumb ident-photo"><img id="ident-img" alt="Your photo"></div>
     <ol class="steps" id="steps"></ol>
-    <p class="note">Two separate checks have to agree before you hear specific facts. If they don't, the app asks you or says it can't tell.</p>
+    <p class="note" id="ident-note">This usually takes 10 to 40 seconds. The first time, Claude asks you to allow the page to send your photo.</p>
   </section>
 
-  <!-- 4. Player -->
+  <!-- Player -->
   <section class="screen" id="s-player" hidden>
-    <div class="top"><button class="iconbtn" data-back aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span id="tier-chip"></span><span style="width:40px"></span></div>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span id="tier-chip"></span><span style="width:40px"></span></div>
     <div class="art-hero">
-      <div class="thumb"><canvas id="player-art" width="300" height="240"></canvas></div>
+      <div class="thumb"><img id="player-img" alt=""></div>
       <div style="min-width:0;display:flex;flex-direction:column;gap:6px">
         <div class="art-title" id="p-title"></div>
         <div id="p-artist"></div>
       </div>
     </div>
     <dl class="facts" id="p-facts"></dl>
+    <p class="caveat">These details come from Claude's own knowledge, not a museum record. Check them against the label. The finished app copies them from the museum's catalogue instead.</p>
     <div class="player">
       <div class="bar"><b id="p-bar"></b></div>
       <div class="times"><span id="p-cur">0:00</span><span id="p-dur">0:00</span></div>
       <div class="pcontrols">
         <button class="iconbtn" id="p-restart" aria-label="Restart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></svg></button>
         <button class="play" id="p-play" aria-label="Play"><svg id="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-        <button class="speed" id="p-speed" aria-label="Playback speed">1.0×</button>
+        <button class="speed" id="p-speed" aria-label="Playback speed">1×</button>
       </div>
     </div>
-    <div>
-      <p class="eyebrow" style="margin-bottom:8px">Transcript</p>
-      <div class="transcript" id="p-text"></div>
-    </div>
-    <div class="source" id="p-source"></div>
-    <details class="why" id="p-why"><summary>How we know it's this work</summary><ul id="p-why-list"></ul></details>
-    <div class="row">
-      <button class="btn ghost" id="p-deeper">Go deeper</button>
-      <button class="btn" id="p-next">Scan next work</button>
-    </div>
+    <div class="verdict" id="verdict"></div>
+    <div><p class="eyebrow" style="margin-bottom:8px">Transcript</p><div class="transcript" id="p-text"></div></div>
+    <details class="why" id="p-why"><summary>Why Claude thinks it's this work</summary><ul id="p-why-list"></ul></details>
+    <p class="small links" id="p-links"></p>
+    <button class="btn block" data-goto="scan">Scan next work</button>
   </section>
 
-  <!-- 5. Picker -->
+  <!-- Picker -->
   <section class="screen" id="s-pick" hidden>
-    <div class="top"><button class="iconbtn" data-back aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip warn"><span class="dot"></span>Needs your tap</span><span style="width:40px"></span></div>
-    <div><p class="eyebrow">Claude Monet · Stacks of Wheat series</p><h2>Which one are you looking at?</h2></div>
-    <p class="muted">Monet painted this subject many times. These versions are very close, and the photo can't tell them apart. One tap and you'll get the full commentary.</p>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip warn"><span class="dot"></span>Needs your tap</span><span style="width:40px"></span></div>
+    <div><p class="eyebrow" id="pick-eyebrow"></p><h2>Which one are you looking at?</h2></div>
+    <p class="muted" id="pick-why"></p>
+    <div class="thumb ident-photo"><img id="pick-img" alt="Your photo"></div>
     <div class="cands" id="cands"></div>
     <button class="btn ghost block" id="pick-general">Not sure, tell me about the series</button>
   </section>
 
-  <!-- 6. Refuse -->
+  <!-- Refuse -->
   <section class="screen" id="s-refuse" hidden>
-    <div class="top"><button class="iconbtn" data-back aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip stop"><span class="dot"></span>Not identified</span><span style="width:40px"></span></div>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip stop"><span class="dot"></span>Not identified</span><span style="width:40px"></span></div>
     <div class="refuse-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg></div>
     <h2>I can't identify this work reliably, so I won't guess.</h2>
-    <div class="group">
-      <span class="lbl">What happened</span>
-      <ul class="reasons">
-        <li>The image search found this picture only on shop and poster sites, not on a museum page.</li>
-        <li>The visual check didn't recognise the work either.</li>
-        <li>It isn't in the list for this exhibition.</li>
-      </ul>
-    </div>
-    <div class="group">
-      <span class="lbl">Try one of these</span>
-      <button class="option" id="r-retake"><span class="grow"><span class="title">Retake from straight on</span><br><span class="small muted">Step back, avoid glare on the glass.</span></span></button>
-      <button class="option" id="r-label"><span class="grow"><span class="title">Photograph the wall label</span><br><span class="small muted">The label is the museum's own record.</span></span></button>
-      <button class="option" id="r-list"><span class="grow"><span class="title">Pick from this room's works</span><br><span class="small muted">Browse the exhibition list.</span></span></button>
+    <div class="thumb ident-photo"><img id="refuse-img" alt="Your photo"></div>
+    <div class="group"><span class="lbl">What I could tell</span><ul class="reasons" id="refuse-reasons"></ul></div>
+    <div class="verdict" id="refuse-verdict"></div>
+    <div class="row">
+      <button class="btn ghost" data-goto="scan">Retake</button>
+      <label class="btn filebtn" for="cam2">Photograph the label<input type="file" id="cam2" accept="image/*" capture="environment"></label>
     </div>
   </section>
 
-  <!-- 7. History -->
+  <!-- History -->
   <section class="screen" id="s-history" hidden>
-    <div class="top"><span class="brand">Your visit</span><span class="eyebrow" id="hist-count"></span></div>
-    <p class="muted">Everything you listened to today. Tap to hear it again.</p>
+    <div class="top"><span class="brand">Your scans</span><span class="eyebrow" id="hist-count"></span></div>
+    <div class="stats" id="stats"></div>
+    <p class="note" id="hist-note"></p>
     <div class="list" id="hist"></div>
   </section>
 
-  <!-- 8. Settings -->
+  <!-- Settings -->
   <section class="screen" id="s-settings" hidden>
     <div class="top"><span class="brand">Settings</span></div>
-    <div class="group">
-      <span class="lbl">Length</span>
+    <div class="group"><span class="lbl">Length</span>
       <div class="seg" id="set-length">
-        <button data-v="short" aria-pressed="false">Short · 30s</button>
-        <button data-v="standard" aria-pressed="true">Standard · 1 min</button>
-        <button data-v="long" aria-pressed="false">Long · 2 min</button>
+        <button data-v="short">Short</button><button data-v="standard">Standard</button><button data-v="long">Long</button>
       </div>
     </div>
-    <div class="group">
-      <span class="lbl">Angle</span>
+    <div class="group"><span class="lbl">Angle</span>
       <div class="seg" id="set-angle">
-        <button data-v="general" aria-pressed="true">General</button>
-        <button data-v="technical" aria-pressed="false">Technique</button>
-        <button data-v="historical" aria-pressed="false">History</button>
+        <button data-v="general">General</button><button data-v="technical">Technique</button><button data-v="historical">History</button>
       </div>
-      <p class="note">If the museum's sources don't cover an angle, the guide says so and keeps it short. It won't fill the gap from guesswork.</p>
+      <p class="note">Applies to your next scan.</p>
     </div>
+    <div class="group"><span class="lbl">Voice</span><div class="list" id="voices"></div></div>
     <div class="group">
-      <span class="lbl">Voice</span>
-      <div class="list" id="voices"></div>
+      <label class="toggle" for="autoplay"><span class="switch"><input type="checkbox" id="autoplay"><span></span></span>Start audio as soon as a work is identified</label>
+      <label class="toggle" for="savephoto"><span class="switch"><input type="checkbox" id="savephoto"><span></span></span>Save my photo with my answer (builds the test set)</label>
     </div>
-    <div class="group">
-      <label class="toggle" for="autoplay"><span class="switch"><input type="checkbox" id="autoplay" checked><span></span></span>Start audio as soon as a work is identified</label>
-    </div>
-    <div class="group">
-      <span class="lbl">Venue</span>
-      <button class="option" id="change-venue"><span class="grow"><span class="title" id="set-venue"></span><br><span class="small muted">Change museum or exhibition</span></span></button>
+    <div class="group"><span class="lbl">Where you are</span>
+      <button class="option" data-goto="venue"><span class="grow"><span class="title" id="set-venue"></span><br><span class="small muted">Change</span></span></button>
     </div>
   </section>
 
   <nav class="nav" id="nav" hidden>
     <button data-tab="scan" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>Scan</button>
-    <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Your visit</button>
+    <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Your scans</button>
     <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
   </nav>
   <div class="toast" id="toast" role="status"></div>
@@ -356,108 +337,27 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
 
 <script>
 (() => {
-  // ---------- sample data (prototype only) ----------
-  const VENUES = [
-    { id: "met", name: "The Metropolitan Museum of Art", city: "New York",
-      shows: ["19th-century European paintings", "Impressionist galleries", "Arms and Armor"] },
-    { id: "aic", name: "Art Institute of Chicago", city: "Chicago",
-      shows: ["Impressionism and Post-Impressionism", "American Art"] },
-  ];
-
-  const WORKS = {
-    wheat: {
-      scene: "wheat", title: "Wheat Field with Cypresses", artist: "Vincent van Gogh",
-      facts: { Date: "1889", Medium: "Oil on canvas", Accession: "1993.132", Credit: "Purchase, The Annenberg Foundation Gift, 1993" },
-      institution: "The Met collection", url: "https://www.metmuseum.org/art/collection/search/436535",
-      commentary: {
-        general: "Start with the sky. The clouds aren't painted as soft shapes. They're built from curling ribbons of paint that seem to move. Then look at the tall dark tree on the right. Its strokes twist upward like a flame, the darkest mass in the whole picture. Below it, the wheat is a band of warm yellow, laid down in short, choppy marks that lean as if the wind is passing through.",
-        technical: "Look closely at the surface. The paint is thick, and each stroke keeps its ridge, so the brush direction stays visible. The sky uses long curved strokes, the wheat uses short angled ones, and the cypress uses tight vertical twists. Colour is kept mostly unmixed: blues and whites in the sky, yellows and ochres in the field, deep greens in the tree.",
-        historical: null,
-      },
-      longExtra: "Step back a few paces. From a distance the separate strokes merge, and the whole field seems to move together, sky, hills and wheat all in one rhythm.",
-      why: ["The visual check named this work.", "The image search matched the Met's collection page for it.", "It's on the list for this room.", "Facts above are copied from the museum record, not written by AI."],
-    },
-    stacksA: { scene: "snow", title: "Haystacks (Effect of Snow and Sun)", artist: "Claude Monet", facts: { Date: "1891", Medium: "Oil on canvas" }, institution: "The Met collection", url: "https://www.metmuseum.org/art/collection/search?q=Haystacks+Effect+of+Snow+and+Sun", hint: "Snow on the ground, pale pink light" },
-    stacksB: { scene: "summer", title: "Stacks of Wheat (End of Summer)", artist: "Claude Monet", facts: { Date: "1890/91", Medium: "Oil on canvas" }, institution: "Art Institute of Chicago", url: "https://www.artic.edu/collection?q=Stacks+of+Wheat+End+of+Summer", hint: "Green field, warm afternoon light" },
-    stacksC: { scene: "autumn", title: "Stacks of Wheat (End of Day, Autumn)", artist: "Claude Monet", facts: { Date: "1890/91", Medium: "Oil on canvas" }, institution: "Art Institute of Chicago", url: "https://www.artic.edu/collection?q=Stacks+of+Wheat+End+of+Day+Autumn", hint: "Long shadows, orange and violet" },
-  };
-  const SERIES_TEXT = "These paintings belong to a series. Monet painted the same stacks in a field again and again, at different times of day and in different seasons. Notice that the subject barely changes. What changes is the light: the colour of the shadows, the glow at the edges of the stacks, the temperature of the whole canvas. Compare the shadow here with the lit side, and you'll see it isn't grey. It's built from colour.";
-  const STACK_COMMENT = "Look at the edge where the stack meets the light. Monet doesn't draw an outline. The shape is made from small touches of colour that shift from warm to cool. The shadow on the ground is coloured too, never plain grey. Stand closer and the surface breaks into separate strokes. Step back and it settles into light falling across a field.";
-
-  const HISTORY_SEED = [
-    { key: "stacksA", when: "11:42" },
-  ];
-
-  // ---------- state ----------
-  const state = {
-    venue: "met", show: 0, outcome: "match", length: "standard", angle: "general",
-    voiceURI: null, rate: 1, autoplay: true, history: HISTORY_SEED.slice(), current: null,
-  };
-  try { Object.assign(state, JSON.parse(localStorage.getItem("ge-settings") || "{}")); } catch (e) {}
-  const save = () => { try { localStorage.setItem("ge-settings", JSON.stringify({ venue: state.venue, show: state.show, length: state.length, angle: state.angle, voiceURI: state.voiceURI, rate: state.rate, autoplay: state.autoplay })); } catch (e) {} };
-
   const $ = (s) => document.querySelector(s);
   const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 3200); }
 
-  // ---------- stand-in paintings ----------
-  function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
-  const SCENES = {
-    wheat: { seed: 7, sky: ["#6f8fc0", "#a9c3e0", "#e6eef2", "#4f6fa8"], hills: ["#5d7aa0", "#7b8fb0"], field: ["#d7b545", "#e6c95c", "#b98f2c", "#9fa04a"], tree: ["#1f3a24", "#2c4d2c", "#3e5f33"] },
-    snow: { seed: 11, sky: ["#e6d2d6", "#f0e3dc", "#cfd6e6", "#d8c4d6"], hills: ["#b9b0c8", "#cdbfd0"], field: ["#f1ece6", "#dfe3ef", "#e9d4d2", "#c7cce0"], stack: ["#c79a8a", "#9a7ea0", "#d9b2a0", "#7c6d93"] },
-    summer: { seed: 23, sky: ["#cfd8c6", "#e6e2c4", "#b9c9c2", "#d8dcc0"], hills: ["#9aa97e", "#b2b88a"], field: ["#a6b265", "#c7c27a", "#8f9e58", "#d2c48c"], stack: ["#d0a457", "#b68a46", "#e2c07a", "#8a7a52"] },
-    autumn: { seed: 31, sky: ["#e9b07a", "#f0c98f", "#d99a77", "#c7a0b0"], hills: ["#a07a9a", "#b58aa0"], field: ["#c9875a", "#d9a06a", "#a86f5a", "#8a6a8a"], stack: ["#b0583a", "#7a4a6a", "#d47a48", "#5e3e62"] },
-    unknown: { seed: 41, sky: ["#77808a", "#9aa0a6", "#5c646c", "#b0b4b8"], hills: ["#6a7078"], field: ["#8a8f96", "#a3a7ab", "#6d7378"], blob: true },
-  };
-  function paint(canvas, sceneKey) {
-    const sc = SCENES[sceneKey]; const ctx = canvas.getContext("2d");
-    const W = canvas.width, H = canvas.height, r = rng(sc.seed);
-    const pick = (a) => a[Math.floor(r() * a.length)];
-    ctx.lineCap = "round";
-    ctx.fillStyle = sc.sky[0]; ctx.fillRect(0, 0, W, H);
-    const stroke = (x, y, ang, len, w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); ctx.stroke(); };
-    const horizon = H * 0.55;
-    for (let i = 0; i < 1400; i++) { // sky, swirling
-      const x = r() * W, y = r() * horizon;
-      const ang = sceneKey === "wheat" ? Math.sin(x / 40) * 1.2 + Math.cos(y / 30) : (r() - .5) * .6;
-      stroke(x, y, ang, 6 + r() * 12, 2 + r() * 3, pick(sc.sky));
-    }
-    for (let i = 0; i < 500; i++) { // hills
-      const x = r() * W, y = horizon - 18 + Math.sin(x / 50) * 8 + r() * 18;
-      stroke(x, y, (r() - .5) * .4, 8 + r() * 10, 3, pick(sc.hills));
-    }
-    for (let i = 0; i < 1600; i++) { // field
-      const x = r() * W, y = horizon + r() * (H - horizon);
-      stroke(x, y, -1.2 + (r() - .5) * .6, 5 + r() * 9, 2 + r() * 2.5, pick(sc.field));
-    }
-    if (sc.tree) { // cypress flame
-      const cx = W * 0.72;
-      for (let i = 0; i < 700; i++) {
-        const t = r(), y = H * 0.08 + t * (H * 0.7), half = (W * 0.07) * Math.sin(Math.PI * Math.min(1, t * 1.1 + .05));
-        const x = cx + (r() - .5) * 2 * half;
-        stroke(x, y, -Math.PI / 2 + Math.sin(y / 12) * .7, 6 + r() * 8, 3, pick(sc.tree));
-      }
-    }
-    if (sc.stack) { // two haystacks
-      [[W * 0.36, H * 0.72, W * 0.17], [W * 0.66, H * 0.7, W * 0.12]].forEach(([cx, base, rad]) => {
-        for (let i = 0; i < 650; i++) {
-          const a = Math.PI + r() * Math.PI, rr = Math.sqrt(r()) * rad;
-          const x = cx + Math.cos(a) * rr, y = base + Math.sin(a) * rr * 1.25;
-          stroke(x, y, (r() - .5) * 1.5, 4 + r() * 6, 2.5, pick(sc.stack));
-        }
-        ctx.globalAlpha = .35; for (let i = 0; i < 160; i++) stroke(cx + rad * .2 + r() * rad * 1.6, base + r() * 10, 0, 8, 3, pick(sc.stack)); ctx.globalAlpha = 1;
-      });
-    }
-    if (sc.blob) {
-      for (let i = 0; i < 400; i++) { const x = W * .5 + (r() - .5) * W * .5, y = H * .45 + (r() - .5) * H * .4; stroke(x, y, r() * 6, 10, 5, pick(["#3f464e", "#c9ccd0", "#59616a"])); }
-    }
-  }
-  function paintWall() {
-    const c = $("#wall"), b = c.getBoundingClientRect(); c.width = Math.max(1, b.width); c.height = Math.max(1, b.height);
-    const ctx = c.getContext("2d"), g = ctx.createRadialGradient(c.width / 2, c.height * .35, 10, c.width / 2, c.height / 2, c.height);
-    g.addColorStop(0, "#5a5650"); g.addColorStop(1, "#1d1c1a"); ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(0, c.height * .9, c.width, c.height * .1);
-  }
+  // ---------- settings (per viewer, browser storage) ----------
+  const state = { setting: "museum", museum: "", exhibition: "", homeKind: "print", length: "standard", angle: "general",
+    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [] };
+  try { Object.assign(state, JSON.parse(localStorage.getItem("ge2") || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem("ge2", JSON.stringify(state)); } catch (e) {} };
+
+  // ---------- capabilities ----------
+  let sample = null, db = null, assets = null, imgLimits = null;
+  const capsReady = (async () => {
+    if (!window.claude?.use) return;
+    const [s, d, a] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("assets")]);
+    sample = s; db = d; assets = a;
+    if (sample) { try { imgLimits = (await sample.limits()).images || null; } catch (e) { imgLimits = null; } }
+    if (db) subscribeScans();
+    updateScanAvailability();
+  })();
 
   // ---------- navigation ----------
   const SCREENS = ["venue", "scan", "ident", "player", "pick", "refuse", "history", "settings"];
@@ -466,15 +366,15 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
     $("#nav").hidden = name === "venue" || name === "ident";
     const tab = ["history", "settings"].includes(name) ? name : "scan";
     document.querySelectorAll(".nav button").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-    if (name !== "player") stopSpeech();
-    if (name === "scan") { requestAnimationFrame(paintWall); paintScanArt(); armHandsFree(); } else disarmHandsFree();
+    if (name !== "player") player.stop();
+    if (name === "venue") renderVenue();
+    if (name === "scan") { $("#where-line").textContent = whereText(); resetCapture(); }
     if (name === "history") renderHistory();
     if (name === "settings") renderSettings();
     $("#s-" + name).scrollTop = 0;
   }
   document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
-  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => { cancelIdent(); show("scan"); }));
-  let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+  document.addEventListener("click", (e) => { const g = e.target.closest("[data-goto]"); if (g) show(g.dataset.goto); });
 
   function segment(id, key, onChange) {
     const root = $(id);
@@ -484,182 +384,312 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
     });
   }
 
-  // ---------- venue ----------
+  // ---------- where are you ----------
   function renderVenue() {
-    const v = $("#venues"); v.innerHTML = "";
-    VENUES.forEach((ven) => {
-      const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(ven.name)}</span><br><span class="small muted">${esc(ven.city)}</span></span>`);
-      b.setAttribute("aria-pressed", String(state.venue === ven.id));
-      b.onclick = () => { state.venue = ven.id; state.show = 0; renderVenue(); };
-      v.appendChild(b);
+    document.querySelectorAll("#setting .option").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.v === state.setting));
+      b.onclick = () => { state.setting = b.dataset.v; save(); renderVenue(); };
     });
-    const s = $("#shows"); s.innerHTML = "";
-    const ven = VENUES.find((x) => x.id === state.venue);
-    ven.shows.forEach((name, i) => {
-      const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(name)}</span></span>`);
-      b.setAttribute("aria-pressed", String(state.show === i));
-      b.onclick = () => { state.show = i; renderVenue(); };
-      s.appendChild(b);
-    });
+    $("#museum-fields").hidden = state.setting !== "museum";
+    $("#home-fields").hidden = state.setting !== "home";
+    $("#museum").value = state.museum; $("#exhibition").value = state.exhibition;
+    const suggestions = [...new Set([...state.recentMuseums, "The Metropolitan Museum of Art", "Art Institute of Chicago", "National Gallery, London", "Musée d'Orsay", "Rijksmuseum", "Museum of Modern Art"])];
+    $("#museum-list").innerHTML = suggestions.map((m) => `<option value="${esc(m)}">`).join("");
+    $("#exhibition-list").innerHTML = state.recentExhibitions.map((m) => `<option value="${esc(m)}">`).join("");
+    segment("#home-kind", "homeKind");
+    $("#venue-err").hidden = true;
   }
-  const venueText = () => { const v = VENUES.find((x) => x.id === state.venue); return `${v.name.replace("The Metropolitan Museum of Art", "The Met")} · ${v.shows[state.show] || v.shows[0]}`; };
-  $("#start").onclick = () => { save(); $("#venue-line").textContent = venueText(); unlockSpeech(); show("scan"); };
+  const whereText = () => state.setting === "home"
+    ? `At home · ${{ print: "print or poster", book: "book", screen: "screen" }[state.homeKind]}`
+    : [state.museum || "Museum not named", state.exhibition].filter(Boolean).join(" · ");
+  const remember = (list, v) => { if (!v) return list; return [v, ...list.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8); };
+  $("#start").onclick = () => {
+    if (state.setting === "museum") {
+      state.museum = $("#museum").value.trim(); state.exhibition = $("#exhibition").value.trim();
+      if (!state.museum) { const e = $("#venue-err"); e.textContent = "Type the museum's name, or pick At home."; e.hidden = false; $("#museum").focus(); return; }
+      state.recentMuseums = remember(state.recentMuseums, state.museum);
+      state.recentExhibitions = remember(state.recentExhibitions, state.exhibition);
+    }
+    state.venueSet = true; save(); unlockSpeech(); show("scan");
+  };
+  $("#where-btn").onclick = () => show("venue");
 
-  // ---------- scan ----------
-  const outcomeScene = () => ({ match: "wheat", series: "summer", unknown: "unknown" }[state.outcome]);
-  function paintScanArt() { paint($("#vf-art"), outcomeScene()); }
-  segment("#outcome", "outcome", () => { paintScanArt(); armHandsFree(); });
-
-  let hfTimer, hfStart;
-  function armHandsFree() {
-    disarmHandsFree();
-    if (!$("#handsfree").checked) { $("#vf-hint").textContent = "Tap the button to scan"; return; }
-    $("#steady").hidden = false; $("#vf-hint").textContent = "Hold steady…"; hfStart = performance.now();
-    const tick = (t) => {
-      const p = Math.min(1, (t - hfStart) / 2600); $("#steady-b").style.width = p * 100 + "%";
-      if (p >= 1) { capture(); return; }
-      hfTimer = requestAnimationFrame(tick);
-    };
-    hfTimer = requestAnimationFrame(tick);
+  // ---------- capture ----------
+  let photo = null; // { blob, url }
+  function resetCapture() {
+    const cap = $("#capture"); cap.querySelector("img")?.remove(); $("#cap-empty").hidden = false;
+    $("#cam").value = ""; $("#lib").value = ""; $("#cam2").value = "";
   }
-  function disarmHandsFree() { cancelAnimationFrame(hfTimer); $("#steady").hidden = true; $("#steady-b").style.width = "0"; }
-  $("#handsfree").onchange = armHandsFree;
-  $("#shutter").onclick = () => { unlockSpeech(); capture(); };
-
-  // ---------- identifying ----------
-  let identTimers = [];
-  const cancelIdent = () => { identTimers.forEach(clearTimeout); identTimers = []; $("#vf").classList.remove("scanning"); };
-  function capture() {
-    disarmHandsFree(); $("#vf").classList.add("scanning");
-    identTimers.push(setTimeout(() => { $("#vf").classList.remove("scanning"); runIdent(); }, 700));
+  function updateScanAvailability() {
+    const n = $("#scan-unavail");
+    if (!sample) { n.textContent = "Identification needs this page opened in Claude, signed in. Open it from claude.ai or the Claude app."; n.hidden = false; }
+    else if (!imgLimits) { n.textContent = "This view can't send photos to Claude. Try the Claude app or claude.ai in a browser."; n.hidden = false; }
+    else n.hidden = true;
   }
-  function runIdent() {
-    paint($("#ident-art"), outcomeScene());
-    const o = state.outcome;
-    const plan = {
-      match: [["Looking at the artwork", "Recognised: Van Gogh, Wheat Field with Cypresses"], ["Searching museum collections for this image", "Found on the Met's collection page"], ["Checking both results agree", "They agree on one work"], ["Reading the wall label", "Not in frame, skipped", "skip"], ["Fetching the museum record", "Title, date, medium, credit line"], ["Writing commentary from the record", ""], ["Preparing audio", ""]],
-      series: [["Looking at the artwork", "Recognised: Monet, Stacks of Wheat"], ["Searching museum collections for this image", "Several close versions found"], ["Checking both results agree", "Agree on the series, not the exact painting"]],
-      unknown: [["Looking at the artwork", "Not recognised"], ["Searching museum collections for this image", "Only shop and poster sites"], ["Checking both results agree", "No trusted match"]],
-    }[o];
+  async function downscale(file, max = 1568) {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" }).catch(() => null);
+    let src = bmp, w, h;
+    if (!bmp) { // fallback for browsers without createImageBitmap options
+      const img = new Image(); img.src = URL.createObjectURL(file); await img.decode(); src = img;
+    }
+    w = src.width; h = src.height; const k = Math.min(1, max / Math.max(w, h));
+    const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob(res, "image/jpeg", 0.85));
+  }
+  async function onFile(input) {
+    const f = input.files && input.files[0]; if (!f) return;
+    unlockSpeech();
+    try {
+      const blob = await downscale(f);
+      if (photo?.url) URL.revokeObjectURL(photo.url);
+      photo = { blob, url: URL.createObjectURL(blob) };
+      identify();
+    } catch (e) { toast("That photo couldn't be read. Try JPEG or PNG."); }
+  }
+  ["#cam", "#lib", "#cam2"].forEach((s) => $(s).addEventListener("change", (e) => onFile(e.target)));
+
+  // ---------- identify (one Claude call; the finished app adds a second, independent check) ----------
+  const LENGTH_WORDS = { short: "40 to 60", standard: "90 to 130", long: "180 to 240" };
+  const ANGLE = { general: "what to look at and why it matters, for a curious non-expert",
+    technical: "technique, materials and how the surface was made",
+    historical: "the work's historical context" };
+  function idPrompt() {
+    const where = state.setting === "home"
+      ? `The visitor is at home, photographing a ${{ print: "print or poster", book: "book reproduction", screen: "picture on a screen" }[state.homeKind]}.`
+      : `The visitor says they are at: ${state.museum}${state.exhibition ? ", " + state.exhibition : ""}. Treat this as a hint, not proof.`;
+    return `You are the identification and narration step of a museum audio guide. Look at the photo.
+${where}
+
+Rules:
+- Set status "identified" only if you recognise this exact artwork. A wrong confident answer is the worst outcome. Refusing is fine.
+- If it is one of several near-identical versions (a series, replicas, studio copies) and you cannot tell which, set status "series" and list up to 3 candidates with what visibly tells each apart.
+- If you do not recognise it, set status "unknown".
+- If a wall label is readable, copy its text into label_text exactly and use it.
+- Leave any fact you are not sure of as null. Never fill gaps with guesses.
+- Commentary: ${LENGTH_WORDS[state.length]} words of spoken English about ${ANGLE[state.angle]}. Point to things visible in the photo. No dates, names or numbers you are unsure of. If you know little about the requested angle, say so briefly and talk about what is visible. Write commentary only when status is "identified" or "series" (for a series, talk about the series and omit specifics of any one version).
+
+Reply with only this JSON:
+{"status":"identified|series|unknown","title":string|null,"artist":string|null,"date":string|null,"medium":string|null,"held_by":string|null,"confidence":"low|medium|high","evidence":[short strings: what in the photo led you here],"label_text":string|null,"series_name":string|null,"candidates":[{"title":string,"held_by":string|null,"date":string|null,"tell":string}],"commentary":string|null,"not_covered":string|null}`;
+  }
+  let ctl = null, lastResult = null, lastScanId = null;
+  $("#ident-cancel").onclick = () => { ctl?.abort(); show("scan"); };
+
+  function steps(list) {
     const ol = $("#steps"); ol.innerHTML = "";
-    const items = plan.map(([t]) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; });
+    return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; });
+  }
+  const mark = (li, cls, detail) => { li.className = cls; if (detail != null) li.querySelector(".detail").textContent = detail; };
+
+  async function identify() {
+    $("#ident-img").src = photo.url; $("#ident-note").hidden = false;
+    const s = steps(["Photo ready", "Asking Claude to identify the work", "Writing commentary", "Preparing audio"]);
     show("ident");
-    let t = 250;
-    plan.forEach(([, detail, kind], i) => {
-      identTimers.push(setTimeout(() => items[i].classList.add("doing"), t));
-      t += 650 + (i < 3 ? 350 : 0);
-      identTimers.push(setTimeout(() => { items[i].classList.remove("doing"); items[i].classList.add(kind || "done"); items[i].querySelector(".detail").textContent = detail; }, t));
-    });
-    identTimers.push(setTimeout(() => {
-      if (o === "match") openPlayer("wheat", "high");
-      else if (o === "series") openPicker();
-      else show("refuse");
-    }, t + 500));
+    mark(s[0], "done", `${Math.round(photo.blob.size / 1024)} KB, sized for upload`);
+    await capsReady;
+    if (!sample || !imgLimits) { mark(s[1], "fail", sample ? "This view can't send photos." : "Open this page in Claude to identify."); return; }
+    mark(s[1], "doing");
+    ctl = new AbortController();
+    const started = performance.now();
+    try {
+      const r = await sample.json(idPrompt(), { images: [photo.blob], modelTier: "complex", signal: ctl.signal, cache: false });
+      r.elapsed = Math.round((performance.now() - started) / 1000);
+      lastResult = r;
+      const name = r.title ? `${r.title}${r.artist ? ", " + r.artist : ""}` : r.series_name || "Not recognised";
+      mark(s[1], "done", r.status === "unknown" ? "Not recognised" : name);
+      if (r.status === "unknown") { mark(s[2], "", "Skipped"); return openRefuse(r); }
+      mark(s[2], "done", r.status === "series" ? "Several close versions" : "Done");
+      mark(s[3], "done");
+      lastScanId = await logScan(r);
+      r.status === "series" ? openPicker(r) : openPlayer(r, "identified");
+    } catch (e) {
+      if (e.code === "cancelled") return;
+      const msg = { not_granted: "You didn't allow the page to use Claude. Reload to be asked again.",
+        rate_limited: "Too many scans in a row. Wait a minute, then retake.",
+        invalid_json: "Claude's answer came back garbled. Retake the photo.",
+        image_rejected: "Claude couldn't read that photo. Try another." }[e.code] || "Something went wrong. Retake the photo.";
+      mark(s[1], "fail", msg);
+    }
+  }
+
+  async function narrateFor(cand, series) {
+    const prompt = `Write spoken commentary for a museum audio guide about "${cand.title}"${series.artist ? " by " + series.artist : ""}${cand.held_by ? " (" + cand.held_by + ")" : ""}. The visitor confirmed this is the work in the photo.
+${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what is visible. No dates, names or numbers you are unsure of. If you know little, say less.
+Reply with only JSON: {"title":string,"artist":string|null,"date":string|null,"medium":string|null,"held_by":string|null,"commentary":string,"not_covered":string|null}`;
+    return sample.json(prompt, { images: [photo.blob], modelTier: "default" });
   }
 
   // ---------- picker ----------
-  function openPicker() {
+  function openPicker(r) {
+    $("#pick-img").src = photo.url;
+    $("#pick-eyebrow").textContent = [r.artist, r.series_name].filter(Boolean).join(" · ");
+    $("#pick-why").textContent = "There are several close versions of this work, and the photo alone can't tell them apart. Pick the one in front of you, or check the wall label.";
     const c = $("#cands"); c.innerHTML = "";
-    ["stacksB", "stacksC", "stacksA"].forEach((k) => {
-      const w = WORKS[k];
-      const b = el("button", "cand", `<div class="thumb"><canvas width="220" height="165"></canvas></div><div style="min-width:0"><div class="t">${esc(w.title)}</div><div class="small muted">${esc(w.hint)}</div><div class="small muted">${esc(w.institution)}</div></div>`);
-      paint(b.querySelector("canvas"), w.scene);
-      b.onclick = () => openPlayer(k, "high", true);
+    (r.candidates || []).slice(0, 3).forEach((cand, i) => {
+      const b = el("button", "cand", `<span class="t">${esc(cand.title)}</span><span class="small muted">${esc([cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small">${esc(cand.tell || "")}</span>`);
+      b.onclick = async () => {
+        b.disabled = true; b.querySelector(".small:last-child").textContent = "Writing commentary…";
+        try {
+          const n = await narrateFor(cand, r);
+          updateScan({ picked: cand.title, pickedIndex: i });
+          openPlayer({ ...r, ...n, candidates: r.candidates, evidence: r.evidence }, "confirmed");
+        } catch (e) { toast("Couldn't write commentary. Try again."); b.disabled = false; }
+      };
       c.appendChild(b);
     });
+    $("#pick-general").onclick = () => { updateScan({ picked: "series" }); openPlayer(r, "series"); };
     show("pick");
   }
-  $("#pick-general").onclick = () => openPlayer("stacksB", "medium");
 
-  // ---------- player ----------
-  function buildScript(key, tier) {
-    const w = WORKS[key];
-    const paras = [];
-    if (tier === "medium") {
-      paras.push({ kind: "record", tag: "From the museum records", text: `This is one of the Stacks of Wheat paintings by ${w.artist}.` });
-      paras.push({ kind: "gen", tag: "Commentary", text: SERIES_TEXT });
-      paras.push({ kind: "gap", tag: "Left out on purpose", text: "The exact title and date aren't given because the app couldn't tell which version this is. Pick it from the list for full details." });
-      return paras;
-    }
-    const f = w.facts;
-    let lead = `This is ${w.title}, by ${w.artist}, dated ${f.Date}. ${f.Medium}.`;
-    if (f.Credit) lead += ` It is in ${w.institution.replace(" collection", "")} collection, ${f.Credit}.`;
-    paras.push({ kind: "record", tag: "From the museum record", text: lead });
-    if (state.length === "short") return paras;
-    let comment = w.commentary ? w.commentary[state.angle] : STACK_COMMENT;
-    if (w.commentary && comment === null) {
-      paras.push({ kind: "gap", tag: "Not covered by the sources", text: "The museum record for this work has no historical essay, so the guide won't add history from guesswork. Here's what to look at instead." });
-      comment = w.commentary.general;
-    } else if (!w.commentary && state.angle === "historical") {
-      paras.push({ kind: "gap", tag: "Not covered by the sources", text: "The record for this painting has no historical essay. Here's what to look at instead." });
-    }
-    paras.push({ kind: "gen", tag: "Commentary", text: comment });
-    if (state.length === "long" && w.longExtra) paras.push({ kind: "gen", tag: "Commentary", text: w.longExtra });
-    return paras;
+  // ---------- refuse ----------
+  function openRefuse(r) {
+    $("#refuse-img").src = photo.url; lastScanId = null;
+    const reasons = (r.evidence || []).slice(0, 4);
+    if (r.label_text) reasons.push(`Label read: "${r.label_text}"`);
+    $("#refuse-reasons").innerHTML = (reasons.length ? reasons : ["Claude didn't recognise this specific work."]).map((x) => `<li>${esc(x)}</li>`).join("");
+    logScan(r).then((id) => { lastScanId = id; renderVerdict("#refuse-verdict", "unknown"); });
+    renderVerdict("#refuse-verdict", "unknown");
+    show("refuse");
   }
 
-  function openPlayer(key, tier, picked) {
-    const w = WORKS[key];
-    state.current = { key, tier };
-    paint($("#player-art"), w.scene);
-    $("#tier-chip").innerHTML = tier === "high"
-      ? `<span class="chip ok"><span class="dot"></span>${picked ? "Confirmed by you" : "Identified"}</span>`
-      : `<span class="chip warn"><span class="dot"></span>Series only</span>`;
-    $("#p-title").textContent = tier === "high" ? w.title : "Stacks of Wheat (series)";
-    $("#p-artist").textContent = w.artist;
+  // ---------- player ----------
+  function openPlayer(r, mode) {
+    $("#player-img").src = photo.url;
+    $("#tier-chip").innerHTML = mode === "series"
+      ? `<span class="chip warn"><span class="dot"></span>Series only</span>`
+      : `<span class="chip warn"><span class="dot"></span>${mode === "confirmed" ? "Picked by you" : "AI match"} · unverified</span>`;
+    const isSeries = mode === "series";
+    $("#p-title").textContent = isSeries ? (r.series_name || "A series") : (r.title || "Untitled");
+    $("#p-artist").textContent = r.artist || "Artist not identified";
     const dl = $("#p-facts"); dl.innerHTML = "";
-    if (tier === "high") Object.entries(w.facts).forEach(([k, v]) => { dl.append(el("dt", "", esc(k)), el("dd", k === "Accession" ? "mono" : "", esc(v))); });
-    else dl.append(el("dt", "", "Date"), el("dd", "muted", "Withheld until you pick the version"));
+    const facts = isSeries ? { Note: "Date and title withheld until you pick the version" } : { Date: r.date, Medium: r.medium, "Held by": r.held_by };
+    Object.entries(facts).forEach(([k, v]) => { dl.append(el("dt", "", esc(k)), el("dd", v ? "" : "muted", esc(v || "Not sure"))); });
 
-    const paras = buildScript(key, tier);
+    const paras = [];
+    if (!isSeries) {
+      let lead = r.title ? `This is ${r.title}` : "This work";
+      if (r.artist) lead += `, by ${r.artist}`;
+      if (r.date) lead += `, dated ${r.date}`;
+      lead += ".";
+      if (r.medium) lead += ` ${r.medium}.`;
+      paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: lead });
+    } else {
+      paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: `This is one of the ${r.series_name || "versions of this work"}${r.artist ? " by " + r.artist : ""}.` });
+    }
+    if (r.not_covered) paras.push({ kind: "gap", tag: "Not covered", text: r.not_covered });
+    if (r.commentary) paras.push({ kind: "gen", tag: "Commentary, from Claude", text: r.commentary });
+
     const box = $("#p-text"); box.innerHTML = "";
-    paras.forEach((p, i) => { const d = el("div", "para " + p.kind, `<span class="tag eyebrow">${esc(p.tag)}</span>${esc(p.text)}`); d.dataset.i = i; box.appendChild(d); });
+    paras.forEach((p) => box.appendChild(el("div", "para " + p.kind, `<span class="tag eyebrow">${esc(p.tag)}</span>${esc(p.text)}`)));
     player.load(paras.filter((p) => p.kind !== "gap"));
 
-    $("#p-source").innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ok);flex:none"><path d="M3 10l9-6 9 6M5 10v8M19 10v8M9 10v8M15 10v8M3 20h18"/></svg><div class="grow"><div class="eyebrow">Source</div><div>${esc(w.institution)}</div><a class="mono" href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.url.replace("https://", ""))}</a></div>`;
-    const why = w.why || (tier === "high"
-      ? ["The visual check and image search agreed on the series.", "You picked this version from the lookalikes.", "Facts above are copied from the museum record."]
-      : ["Both checks agreed on the artist and series.", "They could not separate the versions, so dates and titles are left out."]);
+    const why = [...(r.evidence || [])];
+    if (r.label_text) why.push(`Wall label read: "${r.label_text}"`);
+    why.push(`Claude's own confidence: ${r.confidence || "not given"}. The finished app ignores this and requires a second, independent check to agree.`);
     $("#p-why-list").innerHTML = why.map((x) => `<li>${esc(x)}</li>`).join("");
     $("#p-why").open = false;
-
-    const label = tier === "high" ? w.title : "Stacks of Wheat (series)";
-    if (!state.history.length || state.history[0].label !== label) state.history.unshift({ key, tier, label, when: new Date().toTimeString().slice(0, 5) });
+    const q = encodeURIComponent([isSeries ? r.series_name : r.title, r.artist, r.held_by].filter(Boolean).join(" "));
+    $("#p-links").innerHTML = `Check it yourself: <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">search the web</a> · <a href="https://commons.wikimedia.org/w/index.php?search=${q}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
+    renderVerdict("#verdict", isSeries ? "series" : "identified");
     show("player");
     if (state.autoplay) player.play();
   }
 
-  // ---------- speech player ----------
+  // ---------- verdict: the user's ground truth ----------
+  const VERDICTS = {
+    identified: [["right", "Right work"], ["wrong_work", "Right artist, wrong work"], ["wrong", "Completely wrong"], ["unsure", "I can't tell"]],
+    series: [["series_ok", "Series is right"], ["wrong", "Wrong"], ["unsure", "I can't tell"]],
+    unknown: [["should_know", "It's a known work, should have got it"], ["fair", "Fair, it's obscure"], ["unsure", "I can't tell"]],
+  };
+  function renderVerdict(sel, kind) {
+    const box = $(sel);
+    box.innerHTML = `<span class="lbl" style="font-weight:700">Was this right?</span>
+      <div class="vgrid">${VERDICTS[kind].map(([v, l]) => `<button data-v="${v}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>
+      <input class="field" id="${sel.slice(1)}-truth" placeholder="Actual title and artist, from the label (optional)">
+      <button class="btn ghost" id="${sel.slice(1)}-save">Save answer</button>
+      <p class="note" id="${sel.slice(1)}-status">${db ? "Saved to your scan log, with where you are." : "Saving needs this page opened in Claude, signed in."}</p>`;
+    let pick = null;
+    box.querySelectorAll(".vgrid button").forEach((b) => b.onclick = () => { pick = b.dataset.v; box.querySelectorAll(".vgrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); });
+    const saveBtn = box.querySelector(`#${sel.slice(1)}-save`);
+    saveBtn.disabled = !db;
+    saveBtn.onclick = async () => {
+      if (!pick) { toast("Pick one answer first."); return; }
+      saveBtn.disabled = true; const status = box.querySelector(`#${sel.slice(1)}-status`); status.textContent = "Saving…";
+      try {
+        const patch = { verdict: pick, truth: box.querySelector(`#${sel.slice(1)}-truth`).value.trim() || null, answeredAt: Date.now() };
+        if (state.savePhoto && assets && photo) {
+          try { const up = await assets.upload(photo.blob); patch.photoId = up.id; } catch (e) { patch.photoError = e.code || "upload_failed"; }
+        }
+        await updateScan(patch);
+        status.innerHTML = `<span class="saved">Saved.</span> It's in Your scans.`;
+      } catch (e) { status.textContent = "Couldn't save. Check you're signed in, then try again."; saveBtn.disabled = false; }
+    };
+  }
+
+  // ---------- scan log (db) ----------
+  let scans = [];
+  function subscribeScans() {
+    db.collection("scans").orderBy("at", "desc").limit(200).onSnapshot((snap) => {
+      scans = snap.docs ? snap.docs.map((d) => ({ id: d.id, ...d.data() })) : [];
+      if (!$("#s-history").hidden) renderHistory();
+    }, () => {});
+  }
+  async function logScan(r) {
+    const row = { at: Date.now(), setting: state.setting, museum: state.setting === "museum" ? state.museum : null,
+      exhibition: state.setting === "museum" ? (state.exhibition || null) : null, homeKind: state.setting === "home" ? state.homeKind : null,
+      status: r.status, title: r.title || null, artist: r.artist || null, date: r.date || null, heldBy: r.held_by || null,
+      seriesName: r.series_name || null, candidates: (r.candidates || []).map((c) => c.title), labelText: r.label_text || null,
+      confidence: r.confidence || null, angle: state.angle, length: state.length, seconds: r.elapsed || null, verdict: null };
+    if (!db) return null;
+    try { const ref = await db.collection("scans").add(row); return ref.id; } catch (e) { return null; }
+  }
+  async function updateScan(patch) {
+    if (!db || !lastScanId) throw new Error("no db");
+    await db.doc("scans/" + lastScanId).update(patch);
+  }
+
+  // ---------- history ----------
+  const VERDICT_LABEL = { right: ["ok", "Right"], series_ok: ["ok", "Series right"], fair: ["ok", "Fair refusal"], wrong_work: ["stop", "Wrong work"], wrong: ["stop", "Wrong"], should_know: ["warn", "Missed"], unsure: ["", "Unsure"] };
+  function renderHistory() {
+    const h = $("#hist"); h.innerHTML = "";
+    if (!db) { $("#hist-note").textContent = "Your scan log appears here when the page is opened in Claude, signed in."; $("#stats").innerHTML = ""; $("#hist-count").textContent = ""; return; }
+    const answered = scans.filter((s) => s.verdict);
+    const confident = answered.filter((s) => s.status === "identified");
+    const wrong = confident.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
+    const right = confident.filter((s) => s.verdict === "right").length;
+    $("#stats").innerHTML = `<div class="stat"><b>${scans.length}</b><span>scans</span></div><div class="stat"><b>${right}</b><span>named, right</span></div><div class="stat"><b style="color:var(--stop)">${wrong}</b><span>named, wrong</span></div>`;
+    $("#hist-note").textContent = scans.length ? "Answer \"Was this right?\" after each scan. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
+    $("#hist-count").textContent = `${answered.length} answered`;
+    scans.forEach((s) => {
+      const name = s.status === "unknown" ? "Not identified" : (s.title || s.seriesName || "Untitled");
+      const where = s.setting === "home" ? `At home · ${s.homeKind}` : [s.museum, s.exhibition].filter(Boolean).join(" · ");
+      const [cls, label] = VERDICT_LABEL[s.verdict] || ["", "No answer"];
+      const b = el("div", "hist", `<div class="thumb">${s.photoId ? `<img src="/_blob/${esc(s.photoId)}" alt="">` : `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 16l5-5 4 4 3-3 4 4"/></svg>`}</div>
+        <div style="min-width:0"><div class="t">${esc(name)}</div><div class="small muted">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div>${s.truth ? `<div class="small">Actually: ${esc(s.truth)}</div>` : ""}</div>
+        <span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`);
+      h.appendChild(b);
+    });
+  }
+
+  // ---------- speech ----------
   const synth = window.speechSynthesis;
   let unlocked = false;
   function unlockSpeech() { if (!synth || unlocked) return; try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); unlocked = true; } catch (e) {} }
-  function stopSpeech() { player.stop(); }
-  function pickVoice() {
-    if (!synth) return null; const vs = synth.getVoices();
-    return vs.find((v) => v.voiceURI === state.voiceURI) || vs.find((v) => /en-GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
-  }
+  function pickVoice() { if (!synth) return null; const vs = synth.getVoices(); return vs.find((v) => v.voiceURI === state.voiceURI) || vs.find((v) => /en-GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   const player = {
     paras: [], idx: 0, playing: false, elapsed: 0, total: 0, t0: 0, raf: 0,
-    load(paras) {
-      this.stop(); this.paras = paras; this.idx = 0; this.elapsed = 0;
-      const words = paras.reduce((n, p) => n + p.text.split(/\s+/).length, 0);
-      this.total = words / (2.6 * state.rate); // about 155 words a minute
-      $("#p-dur").textContent = fmt(this.total); $("#p-cur").textContent = "0:00"; $("#p-bar").style.width = "0";
-      this.icon();
-    },
-    play() {
-      if (!synth) { toast("This browser has no built-in voice. Read the transcript below."); return; }
+    load(paras) { this.stop(); this.paras = paras; this.idx = 0; this.elapsed = 0;
+      const words = paras.reduce((n, p) => n + p.text.split(/\s+/).length, 0); this.total = words / (2.6 * state.rate);
+      $("#p-dur").textContent = fmt(this.total); $("#p-cur").textContent = "0:00"; $("#p-bar").style.width = "0"; this.icon(); },
+    play() { if (!synth) { toast("This browser has no built-in voice. Read the transcript below."); return; }
       if (this.idx >= this.paras.length) { this.idx = 0; this.elapsed = 0; }
-      synth.cancel(); this.playing = true; this.icon(); this.speak(); this.t0 = performance.now() - this.elapsed * 1000; this.loop();
-    },
-    speak() {
-      const p = this.paras[this.idx]; if (!p) return this.finish();
+      synth.cancel(); this.playing = true; this.icon(); this.speak(); this.t0 = performance.now() - this.elapsed * 1000; this.loop(); },
+    speak() { const p = this.paras[this.idx]; if (!p) return this.finish();
       document.querySelectorAll(".para").forEach((d) => d.classList.toggle("speaking", d.textContent.endsWith(p.text)));
       const u = new SpeechSynthesisUtterance(p.text); const v = pickVoice(); if (v) u.voice = v; u.rate = state.rate; u.lang = v ? v.lang : "en-GB";
       u.onend = () => { if (!this.playing) return; this.idx++; this.idx < this.paras.length ? this.speak() : this.finish(); };
-      synth.speak(u);
-    },
+      synth.speak(u); },
     pause() { this.playing = false; if (synth) synth.cancel(); this.icon(); cancelAnimationFrame(this.raf); },
     stop() { this.pause(); document.querySelectorAll(".para.speaking").forEach((d) => d.classList.remove("speaking")); },
     finish() { this.playing = false; this.elapsed = this.total; this.idx = this.paras.length; this.icon(); this.draw(); document.querySelectorAll(".para.speaking").forEach((d) => d.classList.remove("speaking")); },
@@ -670,37 +700,18 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
   $("#p-play").onclick = () => { unlockSpeech(); player.playing ? player.pause() : player.play(); };
   $("#p-restart").onclick = () => { player.idx = 0; player.elapsed = 0; player.play(); };
   const RATES = [0.85, 1, 1.15, 1.3];
-  $("#p-speed").onclick = () => { state.rate = RATES[(RATES.indexOf(state.rate) + 1) % RATES.length]; $("#p-speed").textContent = state.rate.toFixed(2).replace(/0$/, "") + "×"; save(); const wasPlaying = player.playing; const cur = state.current; if (cur) { player.load(player.paras); if (wasPlaying) player.play(); } };
-  $("#p-speed").textContent = state.rate.toFixed(2).replace(/0$/, "") + "×";
-  $("#p-next").onclick = () => show("scan");
-  $("#p-deeper").onclick = () => toast("Go deeper reads a summary of published museum essays, with the essay named. Coming in a later phase.");
-
-  // ---------- refuse actions ----------
-  $("#r-retake").onclick = () => show("scan");
-  $("#r-label").onclick = () => { toast("Label mode: point at the printed label. It's the museum's own record."); show("scan"); };
-  $("#r-list").onclick = () => openPicker();
-
-  // ---------- history ----------
-  function renderHistory() {
-    const h = $("#hist"); h.innerHTML = "";
-    state.history.forEach((item) => {
-      const w = WORKS[item.key]; const label = item.label || w.title; const tier = item.tier || "high";
-      const b = el("button", "hist", `<div class="thumb"><canvas width="128" height="128"></canvas></div><div style="min-width:0"><div class="t">${esc(label)}</div><div class="small muted">${esc(w.artist)} · ${esc(item.when)}</div></div><span class="chip ${tier === "high" ? "ok" : "warn"}"><span class="dot"></span>${tier === "high" ? "Verified" : "Series"}</span>`);
-      paint(b.querySelector("canvas"), w.scene);
-      b.onclick = () => { unlockSpeech(); openPlayer(item.key, tier); };
-      h.appendChild(b);
-    });
-    $("#hist-count").textContent = `${state.history.length} work${state.history.length === 1 ? "" : "s"}`;
-  }
+  const rateLabel = () => (state.rate + "×");
+  $("#p-speed").textContent = rateLabel();
+  $("#p-speed").onclick = () => { state.rate = RATES[(RATES.indexOf(state.rate) + 1) % RATES.length]; $("#p-speed").textContent = rateLabel(); save(); const was = player.playing; player.load(player.paras); if (was) player.play(); };
 
   // ---------- settings ----------
   function renderSettings() {
     segment("#set-length", "length"); segment("#set-angle", "angle");
-    $("#autoplay").checked = state.autoplay;
-    $("#set-venue").textContent = venueText();
+    $("#autoplay").checked = state.autoplay; $("#savephoto").checked = state.savePhoto;
+    $("#set-venue").textContent = whereText();
     const list = $("#voices"); list.innerHTML = "";
-    const vs = synth ? synth.getVoices().filter((v) => /^en/i.test(v.lang)).slice(0, 5) : [];
-    if (!vs.length) { list.appendChild(el("p", "note", "Your browser's voices appear here. The real app uses a studio-quality voice service.")); return; }
+    const vs = synth ? synth.getVoices().filter((v) => /^en/i.test(v.lang)).slice(0, 6) : [];
+    if (!vs.length) { list.appendChild(el("p", "note", "Your phone's voices appear here. The finished app uses a studio-quality voice service.")); return; }
     const current = pickVoice();
     vs.forEach((v) => {
       const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(v.name)}</span><br><span class="small muted">${esc(v.lang)}</span></span><span class="small" style="color:var(--accent)">Preview</span>`);
@@ -710,13 +721,10 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
     });
   }
   $("#autoplay").onchange = (e) => { state.autoplay = e.target.checked; save(); };
-  $("#change-venue").onclick = () => { renderVenue(); show("venue"); };
+  $("#savephoto").onchange = (e) => { state.savePhoto = e.target.checked; save(); };
   if (synth) synth.onvoiceschanged = () => { if (!$("#s-settings").hidden) renderSettings(); };
 
   // ---------- boot ----------
-  renderVenue();
-  paint($("#vf-art"), "wheat");
-  window.addEventListener("resize", () => { if (!$("#s-scan").hidden) paintWall(); });
-  show("venue");
+  show(state.venueSet ? "scan" : "venue");
 })();
 </script>
