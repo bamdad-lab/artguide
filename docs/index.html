@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101416">
+<title>Gallery Ear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-column phone app, dark like a camera so it doesn't glare in a gallery. Single dark look by choice. */
+:root {
+  --bg: #101416;
+  --panel: #192024;
+  --panel-2: #222b30;
+  --line: #2f3a40;
+  --fg: #e8ebe6;
+  --muted: #9aa5a3;
+  --accent: #d9b56a;
+  --ok: #7fc59a;
+  --warn: #e3a75b;
+  --stop: #e07f72;
+  --on-accent: #1a1406;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r: 14px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 440px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }
+@media (min-width: 520px) { .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); } }
+.screen { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 18px; gap: 16px; }
+.screen[hidden] { display: none !important; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.brand { font-family: var(--display); font-size: 24px; letter-spacing: .01em; }
+.brand i { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.1; }
+h1 { font-size: 34px; } h2 { font-size: 26px; }
+p { margin: 0; }
+.muted { color: var(--muted); } .small { font-size: 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; text-align: center; }
+.btn.ghost { background: var(--panel-2); color: var(--fg); }
+.btn.block { width: 100%; }
+.btn svg { width: 20px; height: 20px; flex: none; }
+.iconbtn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); flex: none; }
+.iconbtn svg { width: 20px; height: 20px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--panel-2); white-space: nowrap; }
+.chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.stop { color: var(--stop); }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.demo-banner { font-size: 12px; color: var(--muted); text-align: center; padding-block: 6px; border-bottom: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.demo-banner b { color: var(--accent); font-weight: 700; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group > label, .group > .lbl { font-weight: 700; }
+.note { font-size: 13px; color: var(--muted); }
+.field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
+.field::placeholder { color: var(--muted); }
+textarea.field { min-height: 72px; resize: vertical; }
+.option { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: var(--r); background: var(--panel); border: 1px solid transparent; text-align: left; width: 100%; }
+.option[aria-pressed="true"] { border-color: var(--accent); }
+.option .grow { flex: 1; min-width: 0; }
+.option .title { font-weight: 700; }
+.radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
+.option[aria-pressed="true"] .radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.seg { display: flex; padding: 4px; gap: 4px; background: var(--panel); border-radius: 999px; }
+.seg button { flex: 1; min-height: 36px; border-radius: 999px; font-size: 13px; color: var(--muted); padding: 0 6px; }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); font-weight: 700; }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.switch { position: relative; width: 44px; height: 26px; flex: none; }
+.switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--panel-2); transition: background .2s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(18px); background: var(--on-accent); }
+
+/* scan */
+.capture { position: relative; flex: 1; min-height: 300px; border-radius: 22px; overflow: hidden; background: var(--panel); display: grid; place-items: center; text-align: center; }
+.capture img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #0b0e0f; }
+.capture .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; color: var(--muted); }
+.capture .empty svg { width: 56px; height: 56px; color: var(--accent); }
+.corners { position: absolute; inset: 9%; pointer-events: none; }
+.corners i { position: absolute; width: 28px; height: 28px; border: 3px solid var(--fg); opacity: .5; }
+.corners i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.corners i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
+.corners i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
+.corners i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.sr-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+#diag { white-space: pre-line; overflow-wrap: anywhere; font-size: 11px; }
+.fallback { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.fallback input { font: inherit; font-size: 14px; color: var(--fg); max-width: 100%; }
+.tips { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.where { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel); text-align: left; width: 100%; }
+.where .grow { min-width: 0; flex: 1; }
+.where .v { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* identifying */
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; color: var(--muted); }
+.steps li .mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: none; margin-top: 1px; display: grid; place-items: center; }
+.steps li.doing { color: var(--fg); }
+.steps li.doing .mark { border-color: var(--accent); border-top-color: transparent; animation: spin .8s linear infinite; }
+.steps li.done { color: var(--fg); }
+.steps li.done .mark { border-color: var(--ok); background: var(--ok); }
+.steps li.done .mark::after { content: ""; width: 6px; height: 10px; border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px,-1px); }
+.steps li.fail .mark { border-color: var(--stop); }
+.steps .detail { font-size: 13px; color: var(--muted); }
+@keyframes spin { to { transform: rotate(360deg) } }
+.thumb { border-radius: 10px; overflow: hidden; background: var(--panel); }
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ident-photo { aspect-ratio: 4/3; max-width: 100%; }
+.ident-photo img { object-fit: contain; background: #0b0e0f; }
+
+/* player */
+.art-hero { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
+.art-hero .thumb { aspect-ratio: 4/3.2; }
+.art-title { font-family: var(--display); font-style: italic; font-size: 26px; line-height: 1.1; text-wrap: balance; overflow-wrap: anywhere; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.caveat { font-size: 13px; color: var(--warn); border: 1px dashed var(--warn); border-radius: 12px; padding: 10px 12px; }
+.player { background: var(--panel); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.bar { height: 6px; border-radius: 6px; background: var(--panel-2); overflow: hidden; }
+.bar b { display: block; height: 100%; width: 0; background: var(--accent); }
+.times { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pcontrols { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.play { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+.play svg { width: 26px; height: 26px; }
+.speed { font-family: var(--mono); font-size: 13px; padding: 6px 10px; border-radius: 999px; background: var(--panel-2); }
+.transcript { display: flex; flex-direction: column; gap: 12px; }
+.para { padding: 12px 14px; border-radius: 12px; background: var(--panel); }
+.para .tag { display: block; margin-bottom: 4px; }
+.para.facts-p { border-left: 3px solid var(--warn); }
+.para.gen { border-left: 3px solid var(--line); }
+.para.gap { border-left: 3px dashed var(--muted); color: var(--muted); font-size: 14px; }
+.para.speaking { background: var(--panel-2); }
+details.why { background: var(--panel); border-radius: 12px; padding: 12px 14px; }
+details.why summary { cursor: pointer; font-weight: 700; }
+details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.links a { color: var(--accent); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 140px; }
+
+/* verdict */
+.verdict { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vgrid button { min-height: 44px; border-radius: 12px; background: var(--panel); font-size: 14px; font-weight: 700; padding: 6px 8px; }
+.vgrid button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.saved { color: var(--ok); font-size: 14px; font-weight: 700; }
+
+/* picker */
+.cands { display: flex; flex-direction: column; gap: 10px; }
+.cand { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--r); background: var(--panel); text-align: left; width: 100%; }
+.cand .t { font-family: var(--display); font-style: italic; font-size: 20px; line-height: 1.15; }
+
+/* refuse */
+.refuse-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--panel); display: grid; place-items: center; color: var(--stop); }
+.refuse-icon svg { width: 30px; height: 30px; }
+.reasons { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+
+/* history */
+.hist { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 10px; border-radius: var(--r); background: var(--panel); text-align: left; width: 100%; }
+.hist .thumb { aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); }
+.hist .t { font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.15; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--panel); border-radius: 12px; padding: 10px; }
+.stat b { display: block; font-family: var(--display); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+
+/* nav */
+.nav { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: var(--bg);
+  padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); padding-bottom: 4px; }
+.nav button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; font-size: 12px; color: var(--muted); }
+.nav button svg { width: 22px; height: 22px; }
+.nav button[aria-current="page"] { color: var(--accent); }
+.nav[hidden] { display: none !important; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 84px; background: var(--panel-2); border: 1px solid var(--line); padding: 12px 14px; border-radius: 12px; font-size: 14px; opacity: 0; transform: translateY(8px); transition: .25s; pointer-events: none; }
+.toast.show { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* standalone additions */
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.capture video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #0b0e0f; }
+.capture .empty { position: relative; z-index: 1; }
+.capture.flash::after { content: ""; position: absolute; inset: 0; background: #fff; opacity: .7; }
+.controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+.shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid var(--fg); display: grid; place-items: center; }
+.shutter i { width: 60px; height: 60px; border-radius: 50%; background: var(--fg); transition: transform .15s; }
+.shutter:active i { transform: scale(.9); }
+.libbtn { justify-self: end; position: relative; overflow: hidden; padding: 10px 14px; border-radius: 999px; background: var(--panel-2); font-weight: 700; font-size: 14px; cursor: pointer; }
+.libbtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+a.link, .links a { color: var(--accent); }
+.lbl { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="demo-banner"><b>Prototype.</b> Claude identifies the work from your photo. Facts are not yet checked against museum records.</div>
+
+  <!-- Key -->
+  <section class="screen" id="s-key" hidden>
+    <div class="top"><span class="brand">Gallery <i>Ear</i></span></div>
+    <h1>Connect to Claude</h1>
+    <p class="muted">This test version calls Claude directly from your phone. Paste an Anthropic API key from <a class="link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+    <div class="group">
+      <label for="key">API key</label>
+      <input class="field mono" id="key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+    </div>
+    <p class="caveat">The key is stored only in this browser on this phone and sent only to Anthropic. Use a key with a low spending limit, and don't use this on a shared phone. The finished app keeps keys on a server instead.</p>
+    <button class="btn block" id="key-save">Save and continue</button>
+    <p class="note" id="key-err" hidden></p>
+  </section>
+
+  <!-- Where are you -->
+  <section class="screen" id="s-venue" hidden>
+    <div class="top"><span class="brand">Gallery <i>Ear</i></span></div>
+    <h1>Where are you looking at art?</h1>
+    <p class="muted">This is saved with each scan. Later the app uses it to narrow the match to the works in your room, which is the cheapest big accuracy gain.</p>
+    <div class="group">
+      <span class="lbl">Setting</span>
+      <div class="list" id="setting">
+        <button class="option" data-v="museum"><span class="radio"></span><span class="grow"><span class="title">In a museum or gallery</span></span></button>
+        <button class="option" data-v="home"><span class="radio"></span><span class="grow"><span class="title">At home</span><br><span class="small muted">A print, a book, or a picture on a screen</span></span></button>
+      </div>
+    </div>
+    <div class="group" id="museum-fields">
+      <label for="museum">Museum or gallery</label>
+      <input class="field" id="museum" list="museum-list" autocomplete="off" placeholder="e.g. The Metropolitan Museum of Art">
+      <datalist id="museum-list"></datalist>
+      <label for="exhibition">Exhibition, wing or room <span class="muted small">(optional)</span></label>
+      <input class="field" id="exhibition" list="exhibition-list" autocomplete="off" placeholder="e.g. Gallery 822, 19th-century paintings">
+      <datalist id="exhibition-list"></datalist>
+    </div>
+    <div class="group" id="home-fields" hidden>
+      <span class="lbl">What are you photographing?</span>
+      <div class="seg" id="home-kind">
+        <button data-v="print">Print or poster</button>
+        <button data-v="book">Book</button>
+        <button data-v="screen">Screen</button>
+      </div>
+    </div>
+    <button class="btn block" id="start">Continue</button>
+    <p class="note" id="venue-err" hidden></p>
+  </section>
+
+  <!-- Scan -->
+  <section class="screen" id="s-scan" hidden>
+    <button class="where" id="where-btn"><span class="grow"><span class="eyebrow">You are at</span><br><span class="v" id="where-line"></span></span><span class="small" style="color:var(--accent)">Change</span></button>
+    <div class="capture" id="capture">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="empty" id="cap-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+        <p id="cap-msg">Tap Start camera, then point at the artwork.</p>
+        <button class="btn" id="cam-start" type="button">Start camera</button>
+      </div>
+      <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="controls">
+      <span></span>
+      <button class="shutter" id="shutter" aria-label="Scan this artwork" disabled><i></i></button>
+      <label class="libbtn" for="lib">Photos<input type="file" id="lib" accept="image/*"></label>
+    </div>
+    <ul class="tips">
+      <li>Stand straight on to avoid glare on glass.</li>
+      <li>Include the wall label if it's next to the work. It helps.</li>
+    </ul>
+  </section>
+
+  <!-- Identifying -->
+  <section class="screen" id="s-ident" hidden>
+    <div class="top"><button class="iconbtn" id="ident-cancel" aria-label="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><span class="eyebrow">Identifying</span><span style="width:40px"></span></div>
+    <div class="thumb ident-photo"><img id="ident-img" alt="Your photo"></div>
+    <ol class="steps" id="steps"></ol>
+    <p class="note">This usually takes 10 to 40 seconds.</p>
+    <button class="btn ghost block" id="ident-retry" hidden>Back to camera</button>
+  </section>
+
+  <!-- Player -->
+  <section class="screen" id="s-player" hidden>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span id="tier-chip"></span><span style="width:40px"></span></div>
+    <div class="art-hero">
+      <div class="thumb"><img id="player-img" alt=""></div>
+      <div style="min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div class="art-title" id="p-title"></div>
+        <div id="p-artist"></div>
+      </div>
+    </div>
+    <dl class="facts" id="p-facts"></dl>
+    <p class="caveat">These details come from Claude's own knowledge, not a museum record. Check them against the label. The finished app copies them from the museum's catalogue instead.</p>
+    <div class="player">
+      <div class="bar"><b id="p-bar"></b></div>
+      <div class="times"><span id="p-cur">0:00</span><span id="p-dur">0:00</span></div>
+      <div class="pcontrols">
+        <button class="iconbtn" id="p-restart" aria-label="Restart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></svg></button>
+        <button class="play" id="p-play" aria-label="Play"><svg id="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="speed" id="p-speed" aria-label="Playback speed">1×</button>
+      </div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div><p class="eyebrow" style="margin-bottom:8px">Transcript</p><div class="transcript" id="p-text"></div></div>
+    <details class="why" id="p-why"><summary>Why Claude thinks it's this work</summary><ul id="p-why-list"></ul></details>
+    <p class="small links" id="p-links"></p>
+    <button class="btn block" data-goto="scan">Scan next work</button>
+  </section>
+
+  <!-- Picker -->
+  <section class="screen" id="s-pick" hidden>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip warn"><span class="dot"></span>Needs your tap</span><span style="width:40px"></span></div>
+    <div><p class="eyebrow" id="pick-eyebrow"></p><h2>Which one are you looking at?</h2></div>
+    <p class="muted">There are several close versions of this work, and the photo alone can't tell them apart. Pick the one in front of you, or check the wall label.</p>
+    <div class="thumb ident-photo"><img id="pick-img" alt="Your photo"></div>
+    <div class="cands" id="cands"></div>
+    <button class="btn ghost block" id="pick-general">Not sure, tell me about the series</button>
+  </section>
+
+  <!-- Refuse -->
+  <section class="screen" id="s-refuse" hidden>
+    <div class="top"><button class="iconbtn" data-goto="scan" aria-label="Back to camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button><span class="chip stop"><span class="dot"></span>Not identified</span><span style="width:40px"></span></div>
+    <div class="refuse-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg></div>
+    <h2>I can't identify this work reliably, so I won't guess.</h2>
+    <div class="thumb ident-photo"><img id="refuse-img" alt="Your photo"></div>
+    <div class="group"><span class="lbl">What I could tell</span><ul class="reasons" id="refuse-reasons"></ul></div>
+    <div class="verdict" id="refuse-verdict"></div>
+    <button class="btn block" data-goto="scan">Retake, or photograph the wall label</button>
+  </section>
+
+  <!-- History -->
+  <section class="screen" id="s-history" hidden>
+    <div class="top"><span class="brand">Your scans</span><span class="eyebrow" id="hist-count"></span></div>
+    <div class="stats" id="stats"></div>
+    <p class="note" id="hist-note"></p>
+    <button class="btn ghost block" id="export">Export scans and photos (JSON)</button>
+    <div class="list" id="hist"></div>
+  </section>
+
+  <!-- Settings -->
+  <section class="screen" id="s-settings" hidden>
+    <div class="top"><span class="brand">Settings</span></div>
+    <div class="group"><span class="lbl">Length</span>
+      <div class="seg" id="set-length"><button data-v="short">Short</button><button data-v="standard">Standard</button><button data-v="long">Long</button></div>
+    </div>
+    <div class="group"><span class="lbl">Angle</span>
+      <div class="seg" id="set-angle"><button data-v="general">General</button><button data-v="technical">Technique</button><button data-v="historical">History</button></div>
+      <p class="note">Applies to your next scan.</p>
+    </div>
+    <div class="group"><span class="lbl">Voice</span><div class="list" id="voices"></div></div>
+    <div class="group">
+      <label class="toggle" for="autoplay"><span class="switch"><input type="checkbox" id="autoplay"><span></span></span>Start audio as soon as a work is identified</label>
+      <label class="toggle" for="savephoto"><span class="switch"><input type="checkbox" id="savephoto"><span></span></span>Keep my photo with each scan (builds the test set)</label>
+    </div>
+    <div class="group"><span class="lbl">Where you are</span>
+      <button class="option" data-goto="venue"><span class="grow"><span class="title" id="set-venue"></span><br><span class="small muted">Change</span></span></button>
+    </div>
+    <div class="group"><span class="lbl">API key</span>
+      <p class="small muted" id="key-line"></p>
+      <button class="btn ghost" id="key-remove">Remove key from this phone</button>
+    </div>
+  </section>
+
+  <nav class="nav" id="nav" hidden>
+    <button data-tab="scan" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>Scan</button>
+    <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Your scans</button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</button>
+  </nav>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 3200); }
+
+  // ---------- settings (this phone only) ----------
+  const state = { setting: "museum", museum: "", exhibition: "", homeKind: "print", length: "standard", angle: "general",
+    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [], venueSet: false };
+  try { Object.assign(state, JSON.parse(localStorage.getItem("ge-standalone") || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem("ge-standalone", JSON.stringify(state)); } catch (e) {} };
+  const getKey = () => { try { return localStorage.getItem("ge-key") || ""; } catch (e) { return ""; } };
+  const setKey = (k) => { try { k ? localStorage.setItem("ge-key", k) : localStorage.removeItem("ge-key"); } catch (e) {} };
+
+  // ---------- scan log (IndexedDB, this phone only) ----------
+  const idb = new Promise((res, rej) => {
+    const r = indexedDB.open("gallery-ear", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("scans", { keyPath: "id" });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  async function store(mode, fn) { const d = await idb; return new Promise((res, rej) => { const tx = d.transaction("scans", mode); const out = fn(tx.objectStore("scans")); tx.oncomplete = () => res(out && out.result); tx.onerror = () => rej(tx.error); }); }
+  const putScan = (row) => store("readwrite", (s) => s.put(row));
+  const getScan = (id) => store("readonly", (s) => s.get(id));
+  const allScans = () => store("readonly", (s) => s.getAll());
+
+  // ---------- navigation ----------
+  const SCREENS = ["key", "venue", "scan", "ident", "player", "pick", "refuse", "history", "settings"];
+  function show(name) {
+    SCREENS.forEach((s) => ($("#s-" + s).hidden = s !== name));
+    $("#nav").hidden = ["key", "venue", "ident"].includes(name);
+    const tab = ["history", "settings"].includes(name) ? name : "scan";
+    document.querySelectorAll(".nav button").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+    if (name !== "player") player.stop();
+    if (name === "scan") { $("#where-line").textContent = whereText(); $("#lib").value = ""; startCamera(true); } else stopCamera();
+    if (name === "venue") renderVenue();
+    if (name === "history") renderHistory();
+    if (name === "settings") renderSettings();
+    $("#s-" + name).scrollTop = 0;
+  }
+  document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
+  document.addEventListener("click", (e) => { const g = e.target.closest("[data-goto]"); if (g) show(g.dataset.goto); });
+
+  function segment(id, key) {
+    const root = $(id);
+    root.querySelectorAll("button").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.v === state[key]));
+      b.onclick = () => { state[key] = b.dataset.v; root.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); save(); };
+    });
+  }
+
+  // ---------- key ----------
+  $("#key-save").onclick = async () => {
+    const k = $("#key").value.trim(); const err = $("#key-err");
+    if (!/^sk-ant-/.test(k)) { err.textContent = "That doesn't look like an Anthropic key. It starts with sk-ant-."; err.hidden = false; return; }
+    err.textContent = "Checking the key…"; err.hidden = false; $("#key-save").disabled = true;
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
+      if (r.status === 401) { err.textContent = "Anthropic rejected this key. Check you copied all of it."; return; }
+      setKey(k); $("#key").value = ""; err.hidden = true;
+      show(state.venueSet ? "scan" : "venue");
+    } catch (e) { err.textContent = "Couldn't reach Anthropic. Check your connection."; }
+    finally { $("#key-save").disabled = false; }
+  };
+
+  // ---------- where are you ----------
+  function renderVenue() {
+    document.querySelectorAll("#setting .option").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.v === state.setting));
+      b.onclick = () => { state.setting = b.dataset.v; save(); renderVenue(); };
+    });
+    $("#museum-fields").hidden = state.setting !== "museum";
+    $("#home-fields").hidden = state.setting !== "home";
+    $("#museum").value = state.museum; $("#exhibition").value = state.exhibition;
+    const suggestions = [...new Set([...state.recentMuseums, "The Metropolitan Museum of Art", "Art Institute of Chicago", "National Gallery, London", "Musée d'Orsay", "Rijksmuseum", "Museum of Modern Art"])];
+    $("#museum-list").innerHTML = suggestions.map((m) => `<option value="${esc(m)}">`).join("");
+    $("#exhibition-list").innerHTML = state.recentExhibitions.map((m) => `<option value="${esc(m)}">`).join("");
+    segment("#home-kind", "homeKind");
+    $("#venue-err").hidden = true;
+  }
+  const whereText = () => state.setting === "home"
+    ? `At home · ${{ print: "print or poster", book: "book", screen: "screen" }[state.homeKind]}`
+    : [state.museum || "Museum not named", state.exhibition].filter(Boolean).join(" · ");
+  const remember = (list, v) => v ? [v, ...list.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8) : list;
+  $("#start").onclick = () => {
+    if (state.setting === "museum") {
+      state.museum = $("#museum").value.trim(); state.exhibition = $("#exhibition").value.trim();
+      if (!state.museum) { const e = $("#venue-err"); e.textContent = "Type the museum's name, or pick At home."; e.hidden = false; $("#museum").focus(); return; }
+      state.recentMuseums = remember(state.recentMuseums, state.museum);
+      state.recentExhibitions = remember(state.recentExhibitions, state.exhibition);
+    }
+    state.venueSet = true; save(); unlockSpeech(); show("scan");
+  };
+  $("#where-btn").onclick = () => show("venue");
+
+  // ---------- live camera ----------
+  let stream = null;
+  async function startCamera(quiet) {
+    if (stream) return;
+    const msg = $("#cap-msg");
+    if (!navigator.mediaDevices?.getUserMedia) { msg.textContent = "This browser can't show a live camera here. Use Photos instead."; $("#cam-start").hidden = true; return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false });
+      const v = $("#video"); v.srcObject = stream; await v.play().catch(() => {});
+      $("#cap-empty").hidden = true; $("#shutter").disabled = false;
+    } catch (e) {
+      stream = null; $("#shutter").disabled = true; $("#cap-empty").hidden = false; $("#cam-start").hidden = false;
+      if (!quiet) msg.textContent = e.name === "NotAllowedError"
+        ? "Camera access is blocked. Allow it in your browser's site settings, or use Photos."
+        : "The camera couldn't start. Use Photos instead.";
+    }
+  }
+  function stopCamera() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } $("#shutter").disabled = true; $("#cap-empty").hidden = false; }
+  $("#cam-start").onclick = () => { unlockSpeech(); startCamera(false); };
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stopCamera(); else if (!$("#s-scan").hidden) startCamera(true); });
+
+  const MAX = 1568;
+  function toJpeg(src, w, h) {
+    const k = Math.min(1, MAX / Math.max(w, h));
+    const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+    return new Promise((res) => c.toBlob(res, "image/jpeg", 0.85));
+  }
+  $("#shutter").onclick = async () => {
+    unlockSpeech(); const v = $("#video"); if (!v.videoWidth) return;
+    $("#capture").classList.add("flash"); setTimeout(() => $("#capture").classList.remove("flash"), 200);
+    setPhoto(await toJpeg(v, v.videoWidth, v.videoHeight));
+  };
+  $("#lib").addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return; unlockSpeech();
+    try {
+      let src = await createImageBitmap(f, { imageOrientation: "from-image" }).catch(() => null);
+      if (!src) { const img = new Image(); img.src = URL.createObjectURL(f); await img.decode(); src = img; }
+      setPhoto(await toJpeg(src, src.width, src.height));
+    } catch (err) { toast("That photo couldn't be read. Try JPEG or PNG."); }
+  });
+
+  let photo = null;
+  function setPhoto(blob) { if (photo?.url) URL.revokeObjectURL(photo.url); photo = { blob, url: URL.createObjectURL(blob) }; identify(); }
+  const b64 = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.readAsDataURL(blob); });
+  const dataUrl = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(blob); });
+
+  // ---------- Claude ----------
+  const MODEL = "claude-opus-5-5";
+  async function askClaude(prompt, schema, withImage, signal) {
+    const content = [];
+    if (withImage) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await b64(photo.blob) } });
+    content.push({ type: "text", text: prompt });
+    const body = { model: MODEL, max_tokens: 8000, messages: [{ role: "user", content }],
+      output_config: { effort: "medium", format: { type: "json_schema", schema } }, fallbacks: "default" };
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", signal,
+      headers: { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01",
+        "anthropic-beta": "server-side-fallback-2026-07-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
+    if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
+    const text = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    return JSON.parse(text);
+  }
+  const S = (t) => ({ type: [t, "null"] });
+  const ID_SCHEMA = { type: "object", additionalProperties: false,
+    required: ["status", "title", "artist", "date", "medium", "held_by", "confidence", "evidence", "label_text", "series_name", "candidates", "commentary", "not_covered"],
+    properties: { status: { type: "string", enum: ["identified", "series", "unknown"] }, title: S("string"), artist: S("string"), date: S("string"), medium: S("string"), held_by: S("string"),
+      confidence: { type: "string", enum: ["low", "medium", "high"] }, evidence: { type: "array", items: { type: "string" } }, label_text: S("string"), series_name: S("string"),
+      candidates: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "held_by", "date", "tell"], properties: { title: { type: "string" }, held_by: S("string"), date: S("string"), tell: { type: "string" } } } },
+      commentary: S("string"), not_covered: S("string") } };
+  const NARR_SCHEMA = { type: "object", additionalProperties: false, required: ["title", "artist", "date", "medium", "held_by", "commentary", "not_covered"],
+    properties: { title: { type: "string" }, artist: S("string"), date: S("string"), medium: S("string"), held_by: S("string"), commentary: { type: "string" }, not_covered: S("string") } };
+
+  const LENGTH_WORDS = { short: "40 to 60", standard: "90 to 130", long: "180 to 240" };
+  const ANGLE = { general: "what to look at and why it matters, for a curious non-expert", technical: "technique, materials and how the surface was made", historical: "the work's historical context" };
+  function idPrompt() {
+    const where = state.setting === "home"
+      ? `The visitor is at home, photographing a ${{ print: "print or poster", book: "book reproduction", screen: "picture on a screen" }[state.homeKind]}.`
+      : `The visitor says they are at: ${state.museum}${state.exhibition ? ", " + state.exhibition : ""}. Treat this as a hint, not proof.`;
+    return `You are the identification and narration step of a museum audio guide. Look at the photo.
+${where}
+
+Rules:
+- Set status "identified" only if you recognise this exact artwork. A wrong confident answer is the worst outcome. Refusing is fine.
+- If it is one of several near-identical versions (a series, replicas, studio copies) and you cannot tell which, set status "series" and list up to 3 candidates with what visibly tells each apart.
+- If you do not recognise it, set status "unknown", and use evidence to say what you can see.
+- If a wall label is readable, copy its text into label_text exactly and use it.
+- Leave any fact you are not sure of as null. Never fill gaps with guesses.
+- Commentary: ${LENGTH_WORDS[state.length]} words of spoken English about ${ANGLE[state.angle]}. Point to things visible in the photo. No dates, names or numbers you are unsure of. If you know little about the requested angle, say so in not_covered and talk about what is visible. Write commentary only when status is "identified" or "series" (for a series, talk about the series and omit specifics of any one version). Otherwise null.`;
+  }
+
+  // ---------- identify ----------
+  let ctl = null, current = null;
+  $("#ident-cancel").onclick = () => { ctl?.abort(); show("scan"); };
+  $("#ident-retry").onclick = () => show("scan");
+  function steps(list) { const ol = $("#steps"); ol.innerHTML = ""; return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; }); }
+  const mark = (li, cls, detail) => { li.className = cls; if (detail != null) li.querySelector(".detail").textContent = detail; };
+  const errText = (e) => e.status === 401 ? "The API key was rejected. Replace it in Settings."
+    : e.status === 429 ? "Rate limit hit. Wait a minute, then retake."
+    : e.status === 400 && /credit|billing/i.test(e.message) ? "Your Anthropic account is out of credit."
+    : e.status === "refusal" ? "Claude declined this photo."
+    : e instanceof SyntaxError ? "Claude's answer came back garbled. Retake the photo."
+    : !e.status ? "Couldn't reach Anthropic. Check your connection." : "Error: " + e.message;
+
+  async function identify() {
+    $("#ident-img").src = photo.url; $("#ident-retry").hidden = true;
+    const s = steps(["Photo ready", "Asking Claude to identify the work", "Writing commentary", "Preparing audio"]);
+    stopCamera(); show("ident");
+    mark(s[0], "done", `${Math.round(photo.blob.size / 1024)} KB, sized for upload`);
+    mark(s[1], "doing");
+    ctl = new AbortController(); const t0 = performance.now();
+    try {
+      const r = await askClaude(idPrompt(), ID_SCHEMA, true, ctl.signal);
+      r.elapsed = Math.round((performance.now() - t0) / 1000);
+      current = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), result: r };
+      const name = r.title ? `${r.title}${r.artist ? ", " + r.artist : ""}` : r.series_name || "Not recognised";
+      mark(s[1], "done", r.status === "unknown" ? "Not recognised" : name);
+      await logScan(r);
+      if (r.status === "unknown") { mark(s[2], "", "Skipped"); return openRefuse(r); }
+      mark(s[2], "done", r.status === "series" ? "Several close versions" : "Done"); mark(s[3], "done");
+      r.status === "series" ? openPicker(r) : openPlayer(r, "identified");
+    } catch (e) {
+      if (e.name === "AbortError") return;
+      mark(s[1], "fail", errText(e)); $("#ident-retry").hidden = false;
+    }
+  }
+  async function narrateFor(cand, series) {
+    const prompt = `Write spoken commentary for a museum audio guide about "${cand.title}"${series.artist ? " by " + series.artist : ""}${cand.held_by ? " (" + cand.held_by + ")" : ""}. The visitor confirmed this is the work in the photo.
+${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what is visible. No dates, names or numbers you are unsure of. If you know little, say less and use not_covered.`;
+    return askClaude(prompt, NARR_SCHEMA, true);
+  }
+
+  // ---------- picker ----------
+  function openPicker(r) {
+    $("#pick-img").src = photo.url;
+    $("#pick-eyebrow").textContent = [r.artist, r.series_name].filter(Boolean).join(" · ");
+    const c = $("#cands"); c.innerHTML = "";
+    (r.candidates || []).slice(0, 3).forEach((cand) => {
+      const b = el("button", "cand", `<span class="t">${esc(cand.title)}</span><span class="small muted">${esc([cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small tell">${esc(cand.tell || "")}</span>`);
+      b.onclick = async () => {
+        b.disabled = true; b.querySelector(".tell").textContent = "Writing commentary…";
+        try { const n = await narrateFor(cand, r); await updateScan({ picked: cand.title }); openPlayer({ ...r, ...n }, "confirmed"); }
+        catch (e) { toast(errText(e)); b.disabled = false; b.querySelector(".tell").textContent = cand.tell || ""; }
+      };
+      c.appendChild(b);
+    });
+    $("#pick-general").onclick = () => { updateScan({ picked: "series" }); openPlayer(r, "series"); };
+    show("pick");
+  }
+
+  // ---------- refuse ----------
+  function openRefuse(r) {
+    $("#refuse-img").src = photo.url;
+    const reasons = (r.evidence || []).slice(0, 4);
+    if (r.label_text) reasons.push(`Label read: "${r.label_text}"`);
+    $("#refuse-reasons").innerHTML = (reasons.length ? reasons : ["Claude didn't recognise this specific work."]).map((x) => `<li>${esc(x)}</li>`).join("");
+    renderVerdict("#refuse-verdict", "unknown");
+    show("refuse");
+  }
+
+  // ---------- player ----------
+  function openPlayer(r, mode) {
+    $("#player-img").src = photo.url;
+    const isSeries = mode === "series";
+    $("#tier-chip").innerHTML = isSeries ? `<span class="chip warn"><span class="dot"></span>Series only</span>`
+      : `<span class="chip warn"><span class="dot"></span>${mode === "confirmed" ? "Picked by you" : "AI match"} · unverified</span>`;
+    $("#p-title").textContent = isSeries ? (r.series_name || "A series") : (r.title || "Untitled");
+    $("#p-artist").textContent = r.artist || "Artist not identified";
+    const dl = $("#p-facts"); dl.innerHTML = "";
+    const facts = isSeries ? { Note: "Date and title withheld until you pick the version" } : { Date: r.date, Medium: r.medium, "Held by": r.held_by };
+    Object.entries(facts).forEach(([k, v]) => dl.append(el("dt", "", esc(k)), el("dd", v ? "" : "muted", esc(v || "Not sure"))));
+    const paras = [];
+    if (!isSeries) {
+      let lead = r.title ? `This is ${r.title}` : "This work";
+      if (r.artist) lead += `, by ${r.artist}`; if (r.date) lead += `, dated ${r.date}`; lead += ".";
+      if (r.medium) lead += ` ${r.medium}.`;
+      paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: lead });
+    } else paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: `This is one of the ${r.series_name || "versions of this work"}${r.artist ? " by " + r.artist : ""}.` });
+    if (r.not_covered) paras.push({ kind: "gap", tag: "Not covered", text: r.not_covered });
+    if (r.commentary) paras.push({ kind: "gen", tag: "Commentary, from Claude", text: r.commentary });
+    const box = $("#p-text"); box.innerHTML = "";
+    paras.forEach((p) => box.appendChild(el("div", "para " + p.kind, `<span class="tag eyebrow">${esc(p.tag)}</span>${esc(p.text)}`)));
+    player.load(paras.filter((p) => p.kind !== "gap"));
+    const why = [...(r.evidence || [])];
+    if (r.label_text) why.push(`Wall label read: "${r.label_text}"`);
+    why.push(`Claude's own confidence: ${r.confidence || "not given"}. The finished app ignores this and requires a second, independent check to agree.`);
+    $("#p-why-list").innerHTML = why.map((x) => `<li>${esc(x)}</li>`).join(""); $("#p-why").open = false;
+    const q = encodeURIComponent([isSeries ? r.series_name : r.title, r.artist, r.held_by].filter(Boolean).join(" "));
+    $("#p-links").innerHTML = `Check it yourself: <a class="link" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">search the web</a> · <a class="link" href="https://commons.wikimedia.org/w/index.php?search=${q}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
+    renderVerdict("#verdict", isSeries ? "series" : "identified");
+    show("player");
+    if (state.autoplay) player.play();
+  }
+
+  // ---------- verdict ----------
+  const VERDICTS = {
+    identified: [["right", "Right work"], ["wrong_work", "Right artist, wrong work"], ["wrong", "Completely wrong"], ["unsure", "I can't tell"]],
+    series: [["series_ok", "Series is right"], ["wrong", "Wrong"], ["unsure", "I can't tell"]],
+    unknown: [["should_know", "It's a known work, should have got it"], ["fair", "Fair, it's obscure"], ["unsure", "I can't tell"]],
+  };
+  function renderVerdict(sel, kind) {
+    const box = $(sel), p = sel.slice(1);
+    box.innerHTML = `<span class="lbl">Was this right?</span>
+      <div class="vgrid">${VERDICTS[kind].map(([v, l]) => `<button data-v="${v}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>
+      <input class="field" id="${p}-truth" placeholder="Actual title and artist, from the label (optional)">
+      <button class="btn ghost" id="${p}-save">Save answer</button>
+      <p class="note" id="${p}-status">Saved on this phone with where you are. Export it from Your scans.</p>`;
+    let pick = null;
+    box.querySelectorAll(".vgrid button").forEach((b) => b.onclick = () => { pick = b.dataset.v; box.querySelectorAll(".vgrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); });
+    box.querySelector(`#${p}-save`).onclick = async (ev) => {
+      if (!pick) { toast("Pick one answer first."); return; }
+      ev.target.disabled = true;
+      try { await updateScan({ verdict: pick, truth: box.querySelector(`#${p}-truth`).value.trim() || null, answeredAt: Date.now() }); box.querySelector(`#${p}-status`).innerHTML = `<span class="saved">Saved.</span> It's in Your scans.`; }
+      catch (e) { box.querySelector(`#${p}-status`).textContent = "Couldn't save on this phone. Is private browsing on?"; ev.target.disabled = false; }
+    };
+  }
+
+  // ---------- scan log ----------
+  async function logScan(r) {
+    const row = { id: current.id, at: Date.now(), setting: state.setting, museum: state.setting === "museum" ? state.museum : null,
+      exhibition: state.setting === "museum" ? (state.exhibition || null) : null, homeKind: state.setting === "home" ? state.homeKind : null,
+      model: MODEL, status: r.status, title: r.title, artist: r.artist, date: r.date, heldBy: r.held_by, seriesName: r.series_name,
+      candidates: (r.candidates || []).map((c) => c.title), labelText: r.label_text, confidence: r.confidence, evidence: r.evidence,
+      angle: state.angle, length: state.length, seconds: r.elapsed, verdict: null, truth: null,
+      photo: state.savePhoto ? photo.blob : null };
+    try { await putScan(row); } catch (e) {}
+  }
+  async function updateScan(patch) { const row = await getScan(current.id); if (!row) throw new Error("missing"); await putScan({ ...row, ...patch }); }
+
+  const VERDICT_LABEL = { right: ["ok", "Right"], series_ok: ["ok", "Series right"], fair: ["ok", "Fair refusal"], wrong_work: ["stop", "Wrong work"], wrong: ["stop", "Wrong"], should_know: ["warn", "Missed"], unsure: ["", "Unsure"] };
+  let thumbUrls = [];
+  async function renderHistory() {
+    thumbUrls.forEach(URL.revokeObjectURL); thumbUrls = [];
+    let scans = []; try { scans = (await allScans()).sort((a, b) => b.at - a.at); } catch (e) {}
+    const answered = scans.filter((s) => s.verdict), named = answered.filter((s) => s.status === "identified");
+    const right = named.filter((s) => s.verdict === "right").length, wrong = named.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
+    $("#stats").innerHTML = `<div class="stat"><b>${scans.length}</b><span>scans</span></div><div class="stat"><b>${right}</b><span>named, right</span></div><div class="stat"><b style="color:var(--stop)">${wrong}</b><span>named, wrong</span></div>`;
+    $("#hist-note").textContent = scans.length ? "Answer \"Was this right?\" after each scan. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
+    $("#hist-count").textContent = `${answered.length} answered`;
+    $("#export").hidden = !scans.length;
+    const h = $("#hist"); h.innerHTML = "";
+    scans.forEach((s) => {
+      const name = s.status === "unknown" ? "Not identified" : (s.title || s.seriesName || "Untitled");
+      const where = s.setting === "home" ? `At home · ${s.homeKind}` : [s.museum, s.exhibition].filter(Boolean).join(" · ");
+      const [cls, label] = VERDICT_LABEL[s.verdict] || ["", "No answer"];
+      let img = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 16l5-5 4 4 3-3 4 4"/></svg>`;
+      if (s.photo) { const u = URL.createObjectURL(s.photo); thumbUrls.push(u); img = `<img src="${u}" alt="">`; }
+      h.appendChild(el("div", "hist", `<div class="thumb">${img}</div><div style="min-width:0"><div class="t">${esc(name)}</div><div class="small muted">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div>${s.truth ? `<div class="small">Actually: ${esc(s.truth)}</div>` : ""}</div><span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`));
+    });
+  }
+  $("#export").onclick = async () => {
+    const scans = await allScans();
+    const out = await Promise.all(scans.map(async (s) => ({ ...s, photo: s.photo ? await dataUrl(s.photo) : null })));
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), scans: out }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `gallery-ear-scans-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  // ---------- speech ----------
+  const synth = window.speechSynthesis; let unlocked = false;
+  function unlockSpeech() { if (!synth || unlocked) return; try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); unlocked = true; } catch (e) {} }
+  function pickVoice() { if (!synth) return null; const vs = synth.getVoices(); return vs.find((v) => v.voiceURI === state.voiceURI) || vs.find((v) => /en-GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const player = {
+    paras: [], idx: 0, playing: false, elapsed: 0, total: 0, t0: 0, raf: 0,
+    load(paras) { this.stop(); this.paras = paras; this.idx = 0; this.elapsed = 0; const words = paras.reduce((n, p) => n + p.text.split(/\s+/).length, 0); this.total = words / (2.6 * state.rate);
+      $("#p-dur").textContent = fmt(this.total); $("#p-cur").textContent = "0:00"; $("#p-bar").style.width = "0"; this.icon(); },
+    play() { if (!synth) { toast("This browser has no built-in voice. Read the transcript below."); return; }
+      if (this.idx >= this.paras.length) { this.idx = 0; this.elapsed = 0; }
+      synth.cancel(); this.playing = true; this.icon(); this.speak(); this.t0 = performance.now() - this.elapsed * 1000; this.loop(); },
+    speak() { const p = this.paras[this.idx]; if (!p) return this.finish();
+      document.querySelectorAll(".para").forEach((d) => d.classList.toggle("speaking", d.textContent.endsWith(p.text)));
+      const u = new SpeechSynthesisUtterance(p.text); const v = pickVoice(); if (v) u.voice = v; u.rate = state.rate; u.lang = v ? v.lang : "en-GB";
+      u.onend = () => { if (!this.playing) return; this.idx++; this.idx < this.paras.length ? this.speak() : this.finish(); }; synth.speak(u); },
+    pause() { this.playing = false; if (synth) synth.cancel(); this.icon(); cancelAnimationFrame(this.raf); },
+    stop() { this.pause(); document.querySelectorAll(".para.speaking").forEach((d) => d.classList.remove("speaking")); },
+    finish() { this.playing = false; this.elapsed = this.total; this.idx = this.paras.length; this.icon(); this.draw(); document.querySelectorAll(".para.speaking").forEach((d) => d.classList.remove("speaking")); },
+    loop() { cancelAnimationFrame(this.raf); const f = () => { if (!this.playing) return; this.elapsed = Math.min(this.total, (performance.now() - this.t0) / 1000); this.draw(); this.raf = requestAnimationFrame(f); }; f(); },
+    draw() { $("#p-cur").textContent = fmt(this.elapsed); $("#p-bar").style.width = (this.total ? (this.elapsed / this.total) * 100 : 0) + "%"; },
+    icon() { $("#p-icon").innerHTML = this.playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>'; $("#p-play").setAttribute("aria-label", this.playing ? "Pause" : "Play"); },
+  };
+  $("#p-play").onclick = () => { unlockSpeech(); player.playing ? player.pause() : player.play(); };
+  $("#p-restart").onclick = () => { player.idx = 0; player.elapsed = 0; player.play(); };
+  const RATES = [0.85, 1, 1.15, 1.3];
+  $("#p-speed").textContent = state.rate + "×";
+  $("#p-speed").onclick = () => { state.rate = RATES[(RATES.indexOf(state.rate) + 1) % RATES.length]; $("#p-speed").textContent = state.rate + "×"; save(); const was = player.playing; player.load(player.paras); if (was) player.play(); };
+
+  // ---------- settings ----------
+  function renderSettings() {
+    segment("#set-length", "length"); segment("#set-angle", "angle");
+    $("#autoplay").checked = state.autoplay; $("#savephoto").checked = state.savePhoto;
+    $("#set-venue").textContent = whereText();
+    const k = getKey(); $("#key-line").textContent = k ? `Stored on this phone: ${k.slice(0, 10)}…${k.slice(-4)}` : "No key stored.";
+    const list = $("#voices"); list.innerHTML = "";
+    const vs = synth ? synth.getVoices().filter((v) => /^en/i.test(v.lang)).slice(0, 6) : [];
+    if (!vs.length) { list.appendChild(el("p", "note", "Your phone's voices appear here. The finished app uses a studio-quality voice service.")); return; }
+    const cur = pickVoice();
+    vs.forEach((v) => {
+      const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(v.name)}</span><br><span class="small muted">${esc(v.lang)}</span></span><span class="small" style="color:var(--accent)">Preview</span>`);
+      b.setAttribute("aria-pressed", String(cur && v.voiceURI === cur.voiceURI));
+      b.onclick = () => { state.voiceURI = v.voiceURI; save(); renderSettings(); synth.cancel(); const u = new SpeechSynthesisUtterance("Start with the sky."); u.voice = v; u.rate = state.rate; synth.speak(u); };
+      list.appendChild(b);
+    });
+  }
+  $("#autoplay").onchange = (e) => { state.autoplay = e.target.checked; save(); };
+  $("#savephoto").onchange = (e) => { state.savePhoto = e.target.checked; save(); };
+  $("#key-remove").onclick = () => { setKey(""); show("key"); };
+  if (synth) synth.onvoiceschanged = () => { if (!$("#s-settings").hidden) renderSettings(); };
+
+  // ---------- boot ----------
+  show(!getKey() ? "key" : state.venueSet ? "scan" : "venue");
+})();
+</script>
+
+</body>
+</html>
