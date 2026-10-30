@@ -91,6 +91,10 @@ textarea.field { min-height: 72px; resize: vertical; }
 .corners i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
 .filebtn { position: relative; overflow: hidden; }
 .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.sr-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+#diag { white-space: pre-line; overflow-wrap: anywhere; font-size: 11px; }
+.fallback { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.fallback input { font: inherit; font-size: 14px; color: var(--fg); max-width: 100%; }
 .tips { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 .where { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel); text-align: left; width: 100%; }
 .where .grow { min-width: 0; flex: 1; }
@@ -226,8 +230,15 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
       </div>
       <div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     </div>
-    <label class="btn block filebtn" for="cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Take photo<input type="file" id="cam" accept="image/*" capture="environment"></label>
-    <label class="btn ghost block filebtn" for="lib">Choose from photos<input type="file" id="lib" accept="image/*"></label>
+    <button class="btn block" id="take-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Take photo</button>
+    <button class="btn ghost block" id="lib-btn" type="button">Choose from photos</button>
+    <input type="file" id="cam" accept="image/*" capture="environment" class="sr-file">
+    <input type="file" id="lib" accept="image/*" class="sr-file">
+    <div class="fallback">
+      <label for="plain" class="small">If the buttons above do nothing, tap here instead:</label>
+      <input type="file" id="plain" accept="image/*">
+    </div>
+    <p class="note mono" id="diag"></p>
     <ul class="tips">
       <li>Stand straight on to avoid glare on glass.</li>
       <li>Include the wall label if it's next to the work. It helps.</li>
@@ -291,7 +302,7 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
     <div class="verdict" id="refuse-verdict"></div>
     <div class="row">
       <button class="btn ghost" data-goto="scan">Retake</button>
-      <label class="btn filebtn" for="cam2">Photograph the label<input type="file" id="cam2" accept="image/*" capture="environment"></label>
+      <button class="btn" type="button" id="cam2-btn">Photograph the label</button><input type="file" id="cam2" accept="image/*" capture="environment" class="sr-file">
     </div>
   </section>
 
@@ -356,7 +367,7 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
     sample = s; db = d; assets = a;
     if (sample) { try { imgLimits = (await sample.limits()).images || null; } catch (e) { imgLimits = null; } }
     if (db) subscribeScans();
-    updateScanAvailability();
+    updateScanAvailability(); renderDiag();
   })();
 
   // ---------- navigation ----------
@@ -418,7 +429,7 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
   let photo = null; // { blob, url }
   function resetCapture() {
     const cap = $("#capture"); cap.querySelector("img")?.remove(); $("#cap-empty").hidden = false;
-    $("#cam").value = ""; $("#lib").value = ""; $("#cam2").value = "";
+    ["#cam", "#lib", "#cam2", "#plain"].forEach((x) => { $(x).value = ""; });
   }
   function updateScanAvailability() {
     const n = $("#scan-unavail");
@@ -447,7 +458,17 @@ details.why ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direc
       identify();
     } catch (e) { toast("That photo couldn't be read. Try JPEG or PNG."); }
   }
-  ["#cam", "#lib", "#cam2"].forEach((s) => $(s).addEventListener("change", (e) => onFile(e.target)));
+  ["#cam", "#lib", "#cam2", "#plain"].forEach((s) => $(s).addEventListener("change", (e) => { diag("photo received from " + s.slice(1)); onFile(e.target); }));
+  [["#take-btn", "#cam"], ["#lib-btn", "#lib"], ["#cam2-btn", "#cam2"]].forEach(([b, i]) => $(b).addEventListener("click", () => {
+    diag("tapped " + b.slice(1) + ", opening picker…");
+    try { const inp = $(i); if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (e) { try { $(i).click(); } catch (e2) { diag("picker blocked: " + (e2.name || e.name)); } }
+  }));
+  const diagLines = [];
+  function diag(msg) { diagLines.unshift(new Date().toTimeString().slice(0, 8) + " " + msg); diagLines.length = Math.min(diagLines.length, 3); renderDiag(); }
+  function renderDiag() {
+    const caps = `Claude: ${sample ? "connected" : window.claude?.use ? "waiting" : "not available"} · photos to Claude: ${imgLimits ? "yes" : "no"} · log: ${db ? "yes" : "no"}`;
+    $("#diag").textContent = [caps, ...diagLines].join("\n");
+  }
 
   // ---------- identify (one Claude call; the finished app adds a second, independent check) ----------
   const LENGTH_WORDS = { short: "40 to 60", standard: "90 to 130", long: "180 to 240" };
@@ -725,6 +746,7 @@ Reply with only JSON: {"title":string,"artist":string|null,"date":string|null,"m
   if (synth) synth.onvoiceschanged = () => { if (!$("#s-settings").hidden) renderSettings(); };
 
   // ---------- boot ----------
+  renderDiag();
   show(state.venueSet ? "scan" : "venue");
 })();
 </script>
