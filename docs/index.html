@@ -61,6 +61,14 @@ p { margin: 0; }
 .demo-banner b { color: var(--accent); font-weight: 700; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group > label, .group > .lbl { font-weight: 700; }
+.deep { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.deep h3 { font-family: var(--display); font-weight: 400; font-size: 22px; margin: 6px 0 2px; }
+#deep-body { display: flex; flex-direction: column; gap: 4px; }
+#deep-body p { margin: 0 0 8px; }
+#deep-body sup a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 11px; padding: 0 2px; }
+.sources { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.sources a { color: var(--accent); overflow-wrap: anywhere; }
+.sources .host { color: var(--muted); }
 select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
 .note { font-size: 13px; color: var(--muted); }
 .field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
@@ -316,6 +324,17 @@ a.link, .links a { color: var(--accent); }
     </div>
     <div class="verdict" id="verdict"></div>
     <div><p class="eyebrow" style="margin-bottom:8px">Transcript</p><div class="transcript" id="p-text"></div></div>
+    <div class="deep" id="deep">
+      <div><p class="eyebrow">Deeper analysis</p><p class="small muted">Claude searches museum and scholarly sources, then explains composition, technique, context and how critics read the work. Takes about a minute and costs a few more cents.</p></div>
+      <button class="btn ghost block" id="deep-go">Go deeper</button>
+      <ol class="steps" id="deep-steps" hidden></ol>
+      <div id="deep-body" hidden></div>
+      <div class="row" id="deep-actions" hidden>
+        <button class="btn ghost" id="deep-listen">Listen to analysis</button>
+        <button class="btn ghost" id="deep-stop" hidden>Stop</button>
+      </div>
+      <div id="deep-sources" hidden></div>
+    </div>
     <details class="why" id="p-why"><summary>Why Claude thinks it's this work</summary><ul id="p-why-list"></ul></details>
     <p class="small links" id="p-links"></p>
     <button class="btn block" data-goto="scan">Scan next work</button>
@@ -378,7 +397,7 @@ a.link, .links a { color: var(--accent); }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Remove key from this phone</button>
     </div>
-    <p class="note mono">Version 2026-10-31b · languages</p>
+    <p class="note mono">Version 2026-10-31c · deeper analysis</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -650,7 +669,7 @@ ${langRule()}`;
   let ctl = null, current = null;
   $("#ident-cancel").onclick = () => { ctl?.abort(); show("scan"); };
   $("#ident-retry").onclick = () => show("scan");
-  function steps(list) { const ol = $("#steps"); ol.innerHTML = ""; return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; }); }
+  function steps(list, target) { const ol = target || $("#steps"); ol.innerHTML = ""; return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; }); }
   const mark = (li, cls, detail) => { li.className = cls; if (detail != null) li.querySelector(".detail").textContent = detail; };
   const errText = (e) => e.status === 401 ? "The API key was rejected. Replace it in Settings."
     : e.status === 429 ? "Rate limit hit. Wait a minute, then retake."
@@ -745,9 +764,119 @@ ${langRule()}`;
     const q = encodeURIComponent([isSeries ? r.series_name : r.title, r.artist, r.held_by].filter(Boolean).join(" "));
     $("#p-links").innerHTML = `Check it yourself: <a class="link" href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">search the web</a> · <a class="link" href="https://commons.wikimedia.org/w/index.php?search=${q}" target="_blank" rel="noopener">Wikimedia Commons</a>`;
     renderVerdict("#verdict", isSeries ? "series" : "identified");
+    if (current) current.shown = r;
+    resetDeep(r, mode);
     show("player");
     if (state.autoplay) player.play();
   }
+
+  // ---------- deeper analysis: search first, then write only from what was found ----------
+  let deepCtl = null, deepResult = null;
+  function resetDeep(r, mode) {
+    deepCtl?.abort(); deepResult = null;
+    $("#deep").hidden = mode === "series" || !r.title;
+    $("#deep-go").hidden = false; $("#deep-go").textContent = "Go deeper";
+    ["#deep-steps", "#deep-body", "#deep-sources"].forEach((x) => { $(x).hidden = true; $(x).innerHTML = ""; });
+    $("#deep-actions").hidden = true; $("#deep-stop").hidden = true;
+  }
+  function deepPrompt(r) {
+    const L = lang();
+    return `You are writing the "go deeper" section of a museum audio guide for this artwork:
+Title: ${r.title}
+Artist: ${r.artist || "unknown"}
+${r.date ? "Date: " + r.date + "\n" : ""}${r.held_by ? "Collection: " + r.held_by + "\n" : ""}
+First, search the web for reliable sources on this specific work: the holding museum's collection page and essays, catalogue entries, and serious art-historical writing. Prefer museums, universities and established publications over blogs, shops and AI-generated pages. Make a few targeted searches, not many.
+
+Then write the analysis using only what the sources say plus what is plainly visible in the photo.
+Sections, each starting with a line "## <heading>": Composition; Technique and materials; Colour and light; Context; How critics read it; What to look for next.
+Rules:
+- Every factual claim (dates, names, events, provenance, influences, interpretations) must come from a source you found. If the sources don't cover a section, write one sentence saying so and move on. Do not fill gaps from memory.
+- In "How critics read it", say who argues what, by name or institution, and note where they disagree.
+- Summarise in your own words. Never quote more than a short phrase from any source.
+- 350 to 550 words in total, plain spoken style, no bullet lists.
+- Write in ${L.name}${L.code === "en-GB" ? "" : ", including the section headings"}.
+- Output only the sections, nothing before or after.`;
+  }
+  async function askClaudeDeep(prompt, signal, onSearch) {
+    const content = [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await b64(photo.blob) } }, { type: "text", text: prompt }];
+    const messages = [{ role: "user", content }];
+    const blocks = [];
+    for (let round = 0; round < 4; round++) {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", signal,
+        headers: { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01",
+          "anthropic-beta": "server-side-fallback-2026-07-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 16000, messages, fallbacks: "default", output_config: { effort: "medium" },
+          tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }] }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
+      if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
+      for (const b of j.content || []) {
+        if (b.type === "server_tool_use" && b.input?.query) onSearch(b.input.query);
+        blocks.push(b);
+      }
+      if (j.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: j.content }); // a long search turn pauses; send it back to continue
+    }
+    return blocks;
+  }
+  function renderDeep(blocks) {
+    // Number each distinct cited URL and attach markers to the text that cites it.
+    const sources = [], idx = new Map();
+    let raw = "";
+    for (const b of blocks) {
+      if (b.type !== "text") continue;
+      raw += b.text;
+      const nums = [];
+      for (const c of b.citations || []) {
+        if (!c.url) continue;
+        if (!idx.has(c.url)) { idx.set(c.url, sources.length + 1); sources.push({ url: c.url, title: c.title || c.url }); }
+        const n = idx.get(c.url); if (!nums.includes(n)) nums.push(n);
+      }
+      if (nums.length) raw += nums.map((n) => `\u27E6${n}\u27E7`).join("");
+    }
+    const L = lang(), dir = L.rtl ? "rtl" : "auto";
+    const sections = []; let cur = null;
+    raw.trim().split(/\n+/).forEach((line) => {
+      const h = line.match(/^#{1,3}\s*(.+)$/);
+      if (h) { cur = { head: h[1].replace(/\u27E6\d+\u27E7/g, "").trim(), text: "" }; sections.push(cur); }
+      else if (line.trim()) { if (!cur) { cur = { head: "", text: "" }; sections.push(cur); } cur.text += (cur.text ? " " : "") + line.trim(); }
+    });
+    const marked = (t) => esc(t).replace(/\u27E6(\d+)\u27E7/g, (_, n) => `<sup><a href="#src-${n}">[${n}]</a></sup>`).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    $("#deep-body").innerHTML = sections.map((sec) => `${sec.head ? `<h3 dir="${dir}">${esc(sec.head)}</h3>` : ""}<p dir="${dir}" lang="${L.code}">${marked(sec.text)}</p>`).join("");
+    $("#deep-sources").innerHTML = sources.length
+      ? `<p class="eyebrow" style="margin-bottom:6px">Sources Claude used</p><ol class="sources">${sources.map((x, i) => { let host = ""; try { host = new URL(x.url).hostname.replace(/^www\./, ""); } catch (e) {} return `<li id="src-${i + 1}"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a> <span class="host">${esc(host)}</span></li>`; }).join("")}</ol><p class="note">Check claims against these. Claude summarises them and can still misread one.</p>`
+      : `<p class="caveat">Claude cited no sources for this analysis, so treat all of it as unverified.</p>`;
+    $("#deep-body").hidden = false; $("#deep-sources").hidden = false; $("#deep-actions").hidden = false;
+    return { sections: sections.map((sec) => ({ head: sec.head, text: sec.text.replace(/\u27E6\d+\u27E7/g, "") })), sources };
+  }
+  $("#deep-go").onclick = async () => {
+    const r = current?.shown; if (!r) return;
+    $("#deep-go").hidden = true;
+    const st = $("#deep-steps"); st.hidden = false;
+    const s = steps(["Searching museum and scholarly sources", "Writing the analysis from those sources"], st);
+    mark(s[0], "doing");
+    const queries = [];
+    deepCtl = new AbortController();
+    try {
+      const blocks = await askClaudeDeep(deepPrompt(r), deepCtl.signal, (q) => { queries.push(q); mark(s[0], "doing", `Searched: ${queries.slice(-2).join(" · ")}`); });
+      mark(s[0], "done", queries.length ? `${queries.length} search${queries.length === 1 ? "" : "es"}` : "No searches made"); mark(s[1], "done");
+      deepResult = renderDeep(blocks);
+      st.hidden = true;
+      updateScan({ deep: { at: Date.now(), language: state.lang, queries, sources: deepResult.sources.map((x) => x.url) } }).catch(() => {});
+    } catch (e) {
+      if (e.name === "AbortError") return;
+      mark(s[0], "fail", errText(e)); $("#deep-go").hidden = false; $("#deep-go").textContent = "Try again";
+    }
+  };
+  $("#deep-listen").onclick = () => {
+    if (!deepResult) return; unlockSpeech();
+    player.load(deepResult.sections.map((sec) => ({ kind: "gen", text: (sec.head ? sec.head + ". " : "") + sec.text })));
+    player.lang = lang().code; player.play();
+    $("#deep-stop").hidden = false;
+  };
+  $("#deep-stop").onclick = () => { player.stop(); $("#deep-stop").hidden = true; };
 
   // ---------- verdict ----------
   const VERDICTS = {
