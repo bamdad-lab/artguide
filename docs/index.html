@@ -69,6 +69,9 @@ p { margin: 0; }
 .sources { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .sources a { color: var(--accent); overflow-wrap: anywhere; }
 .sources .host { color: var(--muted); }
+.hist-item { display: flex; flex-direction: column; gap: 8px; }
+.hist[aria-expanded="true"] { outline: 1px solid var(--accent); }
+.btn.danger { color: var(--stop); }
 select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
 .note { font-size: 13px; color: var(--muted); }
 .field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
@@ -397,7 +400,7 @@ a.link, .links a { color: var(--accent); }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Remove key from this phone</button>
     </div>
-    <p class="note mono">Version 2026-10-31c · deeper analysis</p>
+    <p class="note mono">Version 2026-10-31d · edit history</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -489,6 +492,7 @@ a.link, .links a { color: var(--accent); }
   const putScan = (row) => store("readwrite", (s) => s.put(row));
   const getScan = (id) => store("readonly", (s) => s.get(id));
   const allScans = () => store("readonly", (s) => s.getAll());
+  const deleteScan = (id) => store("readwrite", (s) => s.delete(id));
 
   // ---------- navigation ----------
   const SCREENS = ["key", "venue", "scan", "ident", "player", "pick", "refuse", "history", "settings"];
@@ -921,7 +925,7 @@ Rules:
     const answered = scans.filter((s) => s.verdict), named = answered.filter((s) => s.status === "identified");
     const right = named.filter((s) => s.verdict === "right").length, wrong = named.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
     $("#stats").innerHTML = `<div class="stat"><b>${scans.length}</b><span>scans</span></div><div class="stat"><b>${right}</b><span>named, right</span></div><div class="stat"><b style="color:var(--stop)">${wrong}</b><span>named, wrong</span></div>`;
-    $("#hist-note").textContent = scans.length ? "Answer \"Was this right?\" after each scan. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
+    $("#hist-note").textContent = scans.length ? "Tap a scan to change its answer or delete it. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
     $("#hist-count").textContent = `${answered.length} answered`;
     $("#export").hidden = !scans.length;
     const h = $("#hist"); h.innerHTML = "";
@@ -931,8 +935,47 @@ Rules:
       const [cls, label] = VERDICT_LABEL[s.verdict] || ["", "No answer"];
       let img = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 16l5-5 4 4 3-3 4 4"/></svg>`;
       if (s.photo) { const u = URL.createObjectURL(s.photo); thumbUrls.push(u); img = `<img src="${u}" alt="">`; }
-      h.appendChild(el("div", "hist", `<div class="thumb">${img}</div><div style="min-width:0"><div class="t">${esc(name)}</div><div class="small muted">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div>${s.truth ? `<div class="small">Actually: ${esc(s.truth)}</div>` : ""}</div><span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`));
+      const when = new Date(s.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const item = el("div", "hist-item");
+      const row = el("button", "hist", `<div class="thumb">${img}</div><div style="min-width:0"><div class="t" dir="auto">${esc(name)}</div><div class="small muted" dir="auto">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div><div class="small muted">${esc(when)}</div>${s.truth ? `<div class="small" dir="auto">Actually: ${esc(s.truth)}</div>` : ""}</div><span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`);
+      row.setAttribute("aria-expanded", "false");
+      row.onclick = () => {
+        const open = row.getAttribute("aria-expanded") === "true";
+        document.querySelectorAll(".hist-edit").forEach((x) => x.remove());
+        document.querySelectorAll(".hist[aria-expanded]").forEach((x) => x.setAttribute("aria-expanded", "false"));
+        if (!open) { row.setAttribute("aria-expanded", "true"); item.appendChild(editor(s)); }
+      };
+      item.appendChild(row); h.appendChild(item);
     });
+  }
+  // Which answers fit a scan: a series the user resolved by picking a version is judged like a named work.
+  const kindOf = (s) => s.status === "unknown" ? "unknown" : s.status === "series" && (!s.picked || s.picked === "series") ? "series" : "identified";
+  function editor(s) {
+    const box = el("div", "hist-edit verdict");
+    let pick = s.verdict || null, armed = false;
+    box.innerHTML = `<span class="lbl">Was this right?</span>
+      <div class="vgrid">${VERDICTS[kindOf(s)].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === pick}">${esc(l)}</button>`).join("")}</div>
+      <input class="field" data-truth placeholder="Actual title and artist, from the label (optional)" value="${esc(s.truth || "")}">
+      <div class="row"><button class="btn" data-save>Save changes</button><button class="btn ghost" data-clear>Clear answer</button></div>
+      <button class="btn ghost danger" data-del>Delete this scan</button>
+      <p class="note" data-status>${s.picked && s.picked !== "series" ? `You picked "${esc(s.picked)}" from the lookalikes.` : ""}</p>`;
+    const status = box.querySelector("[data-status]");
+    box.querySelectorAll(".vgrid button").forEach((b) => b.onclick = () => { pick = b.dataset.v; box.querySelectorAll(".vgrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); });
+    const write = async (patch, msg) => {
+      try { const row = await getScan(s.id); if (!row) throw 0; await putScan({ ...row, ...patch, editedAt: Date.now() }); toast(msg); renderHistory(); }
+      catch (e) { status.textContent = "Couldn't save on this phone. Is private browsing on?"; }
+    };
+    box.querySelector("[data-save]").onclick = () => {
+      if (!pick) { status.textContent = "Pick an answer, or use Clear answer."; return; }
+      write({ verdict: pick, truth: box.querySelector("[data-truth]").value.trim() || null, answeredAt: s.answeredAt || Date.now() }, "Answer updated.");
+    };
+    box.querySelector("[data-clear]").onclick = () => write({ verdict: null, truth: null, answeredAt: null }, "Answer cleared.");
+    const del = box.querySelector("[data-del]");
+    del.onclick = async () => {
+      if (!armed) { armed = true; del.textContent = "Tap again to delete for good"; setTimeout(() => { armed = false; del.textContent = "Delete this scan"; }, 4000); return; }
+      try { await deleteScan(s.id); toast("Scan deleted."); renderHistory(); } catch (e) { status.textContent = "Couldn't delete. Try again."; }
+    };
+    return box;
   }
   $("#export").onclick = async () => {
     const scans = await allScans();
