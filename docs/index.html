@@ -61,6 +61,7 @@ p { margin: 0; }
 .demo-banner b { color: var(--accent); font-weight: 700; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .group > label, .group > .lbl { font-weight: 700; }
+select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
 .note { font-size: 13px; color: var(--muted); }
 .field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
 .field::placeholder { color: var(--muted); }
@@ -252,6 +253,10 @@ a.link, .links a { color: var(--accent); }
         <button data-v="screen">Screen</button>
       </div>
     </div>
+    <div class="group">
+      <label for="lang-venue">Narration language</label>
+      <select class="field" id="lang-venue"></select>
+    </div>
     <button class="btn block" id="start">Continue</button>
     <p class="note" id="venue-err" hidden></p>
   </section>
@@ -349,6 +354,11 @@ a.link, .links a { color: var(--accent); }
   <!-- Settings -->
   <section class="screen" id="s-settings" hidden>
     <div class="top"><span class="brand">Settings</span></div>
+    <div class="group">
+      <label for="lang-set">Narration language</label>
+      <select class="field" id="lang-set"></select>
+      <p class="note" id="lang-note">Claude writes the facts and commentary in this language. The app's buttons stay in English for now.</p>
+    </div>
     <div class="group"><span class="lbl">Length</span>
       <div class="seg" id="set-length"><button data-v="short">Short</button><button data-v="standard">Standard</button><button data-v="long">Long</button></div>
     </div>
@@ -385,11 +395,67 @@ a.link, .links a { color: var(--accent); }
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 3200); }
 
+  // ---------- languages ----------
+  // lead(): the facts sentence, built in code from the fields so the model never rewords them.
+  const j = (...xs) => xs.filter(Boolean).join("");
+  const LANGS = [
+    { code: "en-GB", name: "English", native: "English",
+      lead: (t, a, d, m) => j(t ? `This is ${t}` : "This work", a && `, by ${a}`, d && `, dated ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`This is one of the ${s || "versions of this work"}`, a && ` by ${a}`, ".") },
+    { code: "es-ES", name: "Spanish", native: "Español",
+      lead: (t, a, d, m) => j(t ? `Esta obra es «${t}»` : "Esta obra", a && `, de ${a}`, d && `, fechada en ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`Es una de las obras de la serie ${s || ""}`.trim(), a && ` de ${a}`, ".") },
+    { code: "fr-FR", name: "French", native: "Français",
+      lead: (t, a, d, m) => j(t ? `Voici « ${t} »` : "Voici cette œuvre", a && `, de ${a}`, d && `, datée de ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`C'est l'une des œuvres de la série ${s || ""}`.trim(), a && ` de ${a}`, ".") },
+    { code: "de-DE", name: "German", native: "Deutsch",
+      lead: (t, a, d, m) => j(t ? `Dies ist „${t}“` : "Dies ist ein Werk", a && ` von ${a}`, d && `, datiert ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`Dies ist eines der Werke der Reihe ${s || ""}`.trim(), a && ` von ${a}`, ".") },
+    { code: "it-IT", name: "Italian", native: "Italiano",
+      lead: (t, a, d, m) => j(t ? `Questa è «${t}»` : "Questa è un'opera", a && ` di ${a}`, d && `, datata ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`È una delle opere della serie ${s || ""}`.trim(), a && ` di ${a}`, ".") },
+    { code: "pt-PT", name: "Portuguese", native: "Português",
+      lead: (t, a, d, m) => j(t ? `Esta obra é «${t}»` : "Esta obra", a && `, de ${a}`, d && `, datada de ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`É uma das obras da série ${s || ""}`.trim(), a && ` de ${a}`, ".") },
+    { code: "nl-NL", name: "Dutch", native: "Nederlands",
+      lead: (t, a, d, m) => j(t ? `Dit is ‘${t}’` : "Dit is een werk", a && ` van ${a}`, d && `, gedateerd ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`Dit is een van de werken uit de reeks ${s || ""}`.trim(), a && ` van ${a}`, ".") },
+    { code: "tr-TR", name: "Turkish", native: "Türkçe",
+      lead: (t, a, d, m) => j(a ? `Bu eser, ${a} tarafından yapılmış` : "Bu eser", t && ` “${t}”`, d && `, tarihi ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(a ? `${a} imzalı ` : "", `${s || "bir seri"} serisinden bir eser.`) },
+    { code: "ar-SA", name: "Arabic", native: "العربية", rtl: true,
+      lead: (t, a, d, m) => j(t ? `هذا العمل هو «${t}»` : "هذا العمل", a && ` للفنان ${a}`, d && `، ويعود تاريخه إلى ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`هذا العمل واحد من سلسلة ${s || ""}`.trim(), a && ` للفنان ${a}`, ".") },
+    { code: "fa-IR", name: "Persian", native: "فارسی", rtl: true,
+      lead: (t, a, d, m) => j(t ? `این اثر «${t}» است` : "این یک اثر است", a && `، از ${a}`, d && `، به تاریخ ${d}`, ".", m && ` ${m}.`),
+      series: (s, a) => j(`این اثر یکی از مجموعهٔ ${s || ""}`.trim(), a && ` از ${a}`, " است.") },
+    { code: "hi-IN", name: "Hindi", native: "हिन्दी",
+      lead: (t, a, d, m) => j(t ? `यह “${t}” है` : "यह एक कलाकृति है", a && `, ${a} की कृति`, d && `, तिथि ${d}`, "।", m && ` ${m}।`),
+      series: (s, a) => j(a ? `यह ${a} की ` : "यह ", `${s || ""} श्रृंखला की एक कृति है।`) },
+    { code: "zh-CN", name: "Chinese (Simplified)", native: "简体中文",
+      lead: (t, a, d, m) => j("这是", a && `${a}的`, t ? `《${t}》` : "这件作品", d && `，创作于${d}`, "。", m && `${m}。`),
+      series: (s, a) => j("这是", a && `${a}的`, `${s || ""}系列作品之一。`) },
+    { code: "ja-JP", name: "Japanese", native: "日本語",
+      lead: (t, a, d, m) => j("これは", a && `${a}の`, t ? `「${t}」` : "作品", "です。", d && `制作年は${d}です。`, m && `${m}。`),
+      series: (s, a) => j("これは", a && `${a}の`, `${s || ""}シリーズの一点です。`) },
+    { code: "ko-KR", name: "Korean", native: "한국어",
+      lead: (t, a, d, m) => j("이 작품은 ", a && `${a}의 `, t ? `「${t}」` : "작품", "입니다.", d && ` 제작 연도는 ${d}입니다.`, m && ` ${m}.`),
+      series: (s, a) => j("이 작품은 ", a && `${a}의 `, `${s || ""} 연작 중 하나입니다.`) },
+  ];
+  const guessLang = () => { const n = (navigator.language || "en").toLowerCase(); return (LANGS.find((l) => l.code.toLowerCase() === n) || LANGS.find((l) => n.startsWith(l.code.slice(0, 2).toLowerCase())) || LANGS[0]).code; };
+  const lang = () => LANGS.find((l) => l.code === state.lang) || LANGS[0];
+
   // ---------- settings (this phone only) ----------
   const state = { setting: "museum", museum: "", exhibition: "", homeKind: "print", length: "standard", angle: "general",
-    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [], venueSet: false };
+    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [], venueSet: false, lang: null };
   try { Object.assign(state, JSON.parse(localStorage.getItem("ge-standalone") || "{}")); } catch (e) {}
   const save = () => { try { localStorage.setItem("ge-standalone", JSON.stringify(state)); } catch (e) {} };
+  if (!state.lang) state.lang = guessLang();
+  function fillLangSelect(sel) {
+    sel.innerHTML = LANGS.map((l) => `<option value="${l.code}">${esc(l.native)}${l.native !== l.name ? " · " + esc(l.name) : ""}</option>`).join("");
+    sel.value = state.lang;
+    sel.onchange = () => { state.lang = sel.value; save(); if (!$("#s-settings").hidden) renderSettings(); checkVoice(true); };
+  }
   const getKey = () => { try { return localStorage.getItem("ge-key") || ""; } catch (e) { return ""; } };
   const setKey = (k) => { try { k ? localStorage.setItem("ge-key", k) : localStorage.removeItem("ge-key"); } catch (e) {} };
 
@@ -460,6 +526,7 @@ a.link, .links a { color: var(--accent); }
     $("#museum-list").innerHTML = suggestions.map((m) => `<option value="${esc(m)}">`).join("");
     $("#exhibition-list").innerHTML = state.recentExhibitions.map((m) => `<option value="${esc(m)}">`).join("");
     segment("#home-kind", "homeKind");
+    fillLangSelect($("#lang-venue"));
     $("#venue-err").hidden = true;
   }
   const whereText = () => state.setting === "home"
@@ -569,7 +636,13 @@ Rules:
 - If you do not recognise it, set status "unknown", and use evidence to say what you can see.
 - If a wall label is readable, copy its text into label_text exactly and use it.
 - Leave any fact you are not sure of as null. Never fill gaps with guesses.
-- Commentary: ${LENGTH_WORDS[state.length]} words of spoken English about ${ANGLE[state.angle]}. Point to things visible in the photo. No dates, names or numbers you are unsure of. If you know little about the requested angle, say so in not_covered and talk about what is visible. Write commentary only when status is "identified" or "series" (for a series, talk about the series and omit specifics of any one version). Otherwise null.`;
+- Commentary: ${LENGTH_WORDS[state.length]} words of spoken English about ${ANGLE[state.angle]}. Point to things visible in the photo. No dates, names or numbers you are unsure of. If you know little about the requested angle, say so in not_covered and talk about what is visible. Write commentary only when status is "identified" or "series" (for a series, talk about the series and omit specifics of any one version). Otherwise null.
+${langRule()}`;
+  }
+  function langRule() {
+    const L = lang();
+    if (L.code === "en-GB") return "- Write every text field in English.";
+    return `- Write every text field except label_text in ${L.name}: title, artist, date, medium, held_by, series_name, candidates, evidence, commentary and not_covered. Use the title and artist name as they are usually written in ${L.name}, in its own script; if there is no standard ${L.name} title, translate it plainly. Copy label_text exactly as printed, in its original language.`;
   }
 
   // ---------- identify ----------
@@ -594,7 +667,7 @@ Rules:
     ctl = new AbortController(); const t0 = performance.now();
     try {
       const r = await askClaude(idPrompt(), ID_SCHEMA, true, ctl.signal);
-      r.elapsed = Math.round((performance.now() - t0) / 1000);
+      r.elapsed = Math.round((performance.now() - t0) / 1000); r.lang = state.lang;
       current = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), result: r };
       const name = r.title ? `${r.title}${r.artist ? ", " + r.artist : ""}` : r.series_name || "Not recognised";
       mark(s[1], "done", r.status === "unknown" ? "Not recognised" : name);
@@ -609,7 +682,8 @@ Rules:
   }
   async function narrateFor(cand, series) {
     const prompt = `Write spoken commentary for a museum audio guide about "${cand.title}"${series.artist ? " by " + series.artist : ""}${cand.held_by ? " (" + cand.held_by + ")" : ""}. The visitor confirmed this is the work in the photo.
-${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what is visible. No dates, names or numbers you are unsure of. If you know little, say less and use not_covered.`;
+${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what is visible. No dates, names or numbers you are unsure of. If you know little, say less and use not_covered.
+${langRule()}`;
     return askClaude(prompt, NARR_SCHEMA, true);
   }
 
@@ -622,7 +696,7 @@ ${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what i
       const b = el("button", "cand", `<span class="t">${esc(cand.title)}</span><span class="small muted">${esc([cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small tell">${esc(cand.tell || "")}</span>`);
       b.onclick = async () => {
         b.disabled = true; b.querySelector(".tell").textContent = "Writing commentary…";
-        try { const n = await narrateFor(cand, r); await updateScan({ picked: cand.title }); openPlayer({ ...r, ...n }, "confirmed"); }
+        try { const n = await narrateFor(cand, r); await updateScan({ picked: cand.title }); openPlayer({ ...r, ...n, lang: state.lang }, "confirmed"); }
         catch (e) { toast(errText(e)); b.disabled = false; b.querySelector(".tell").textContent = cand.tell || ""; }
       };
       c.appendChild(b);
@@ -653,16 +727,15 @@ ${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what i
     const facts = isSeries ? { Note: "Date and title withheld until you pick the version" } : { Date: r.date, Medium: r.medium, "Held by": r.held_by };
     Object.entries(facts).forEach(([k, v]) => dl.append(el("dt", "", esc(k)), el("dd", v ? "" : "muted", esc(v || "Not sure"))));
     const paras = [];
-    if (!isSeries) {
-      let lead = r.title ? `This is ${r.title}` : "This work";
-      if (r.artist) lead += `, by ${r.artist}`; if (r.date) lead += `, dated ${r.date}`; lead += ".";
-      if (r.medium) lead += ` ${r.medium}.`;
-      paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: lead });
-    } else paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: `This is one of the ${r.series_name || "versions of this work"}${r.artist ? " by " + r.artist : ""}.` });
+    const L = r.lang ? (LANGS.find((x) => x.code === r.lang) || lang()) : lang();
+    if (!isSeries) paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: L.lead(r.title, r.artist, r.date, r.medium) });
+    else paras.push({ kind: "facts-p", tag: "Facts, from Claude (unverified)", text: L.series(r.series_name, r.artist) });
     if (r.not_covered) paras.push({ kind: "gap", tag: "Not covered", text: r.not_covered });
     if (r.commentary) paras.push({ kind: "gen", tag: "Commentary, from Claude", text: r.commentary });
     const box = $("#p-text"); box.innerHTML = "";
-    paras.forEach((p) => box.appendChild(el("div", "para " + p.kind, `<span class="tag eyebrow">${esc(p.tag)}</span>${esc(p.text)}`)));
+    paras.forEach((p) => box.appendChild(el("div", "para " + p.kind, `<span class="tag eyebrow">${esc(p.tag)}</span><span dir="${L.rtl ? "rtl" : "auto"}" lang="${L.code}" style="display:block">${esc(p.text)}</span>`)));
+    $("#p-title").dir = "auto"; $("#p-artist").dir = "auto";
+    player.lang = L.code;
     player.load(paras.filter((p) => p.kind !== "gap"));
     const why = [...(r.evidence || [])];
     if (r.label_text) why.push(`Wall label read: "${r.label_text}"`);
@@ -704,7 +777,7 @@ ${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what i
       exhibition: state.setting === "museum" ? (state.exhibition || null) : null, homeKind: state.setting === "home" ? state.homeKind : null,
       model: MODEL, status: r.status, title: r.title, artist: r.artist, date: r.date, heldBy: r.held_by, seriesName: r.series_name,
       candidates: (r.candidates || []).map((c) => c.title), labelText: r.label_text, confidence: r.confidence, evidence: r.evidence,
-      angle: state.angle, length: state.length, seconds: r.elapsed, verdict: null, truth: null,
+      angle: state.angle, length: state.length, language: r.lang, seconds: r.elapsed, verdict: null, truth: null,
       photo: state.savePhoto ? photo.blob : null };
     try { await putScan(row); } catch (e) {}
   }
@@ -742,18 +815,33 @@ ${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what i
   // ---------- speech ----------
   const synth = window.speechSynthesis; let unlocked = false;
   function unlockSpeech() { if (!synth || unlocked) return; try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); unlocked = true; } catch (e) {} }
-  function pickVoice() { if (!synth) return null; const vs = synth.getVoices(); return vs.find((v) => v.voiceURI === state.voiceURI) || vs.find((v) => /en-GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null; }
+  const voiceKey = (code) => "voice:" + code;
+  function voicesFor(code) { if (!synth) return []; const pre = code.slice(0, 2).toLowerCase(); return synth.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(pre)); }
+  function pickVoice(code) {
+    code = code || state.lang; const vs = voicesFor(code); if (!vs.length) return null;
+    const saved = state[voiceKey(code)];
+    return vs.find((v) => v.voiceURI === saved) || vs.find((v) => v.lang.replace("_", "-").toLowerCase() === code.toLowerCase()) || vs[0];
+  }
+  let warnedVoice = {};
+  function checkVoice(force) {
+    if (!synth) return; const L = lang();
+    if (synth.getVoices().length && !voicesFor(L.code).length && (force || !warnedVoice[L.code])) {
+      warnedVoice[L.code] = true;
+      toast(`Your phone has no ${L.name} voice installed. Add one in your phone's text-to-speech settings, or read the transcript.`);
+    }
+  }
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   const player = {
     paras: [], idx: 0, playing: false, elapsed: 0, total: 0, t0: 0, raf: 0,
     load(paras) { this.stop(); this.paras = paras; this.idx = 0; this.elapsed = 0; const words = paras.reduce((n, p) => n + p.text.split(/\s+/).length, 0); this.total = words / (2.6 * state.rate);
       $("#p-dur").textContent = fmt(this.total); $("#p-cur").textContent = "0:00"; $("#p-bar").style.width = "0"; this.icon(); },
     play() { if (!synth) { toast("This browser has no built-in voice. Read the transcript below."); return; }
+      if (!voicesFor(this.lang || state.lang).length && synth.getVoices().length) checkVoice(false);
       if (this.idx >= this.paras.length) { this.idx = 0; this.elapsed = 0; }
       synth.cancel(); this.playing = true; this.icon(); this.speak(); this.t0 = performance.now() - this.elapsed * 1000; this.loop(); },
     speak() { const p = this.paras[this.idx]; if (!p) return this.finish();
       document.querySelectorAll(".para").forEach((d) => d.classList.toggle("speaking", d.textContent.endsWith(p.text)));
-      const u = new SpeechSynthesisUtterance(p.text); const v = pickVoice(); if (v) u.voice = v; u.rate = state.rate; u.lang = v ? v.lang : "en-GB";
+      const code = this.lang || state.lang; const u = new SpeechSynthesisUtterance(p.text); const v = pickVoice(code); if (v) u.voice = v; u.rate = state.rate; u.lang = v ? v.lang : code;
       u.onend = () => { if (!this.playing) return; this.idx++; this.idx < this.paras.length ? this.speak() : this.finish(); }; synth.speak(u); },
     pause() { this.playing = false; if (synth) synth.cancel(); this.icon(); cancelAnimationFrame(this.raf); },
     stop() { this.pause(); document.querySelectorAll(".para.speaking").forEach((d) => d.classList.remove("speaking")); },
@@ -770,18 +858,19 @@ ${LENGTH_WORDS[state.length]} words about ${ANGLE[state.angle]}. Point to what i
 
   // ---------- settings ----------
   function renderSettings() {
+    fillLangSelect($("#lang-set"));
     segment("#set-length", "length"); segment("#set-angle", "angle");
     $("#autoplay").checked = state.autoplay; $("#savephoto").checked = state.savePhoto;
     $("#set-venue").textContent = whereText();
     const k = getKey(); $("#key-line").textContent = k ? `Stored on this phone: ${k.slice(0, 10)}…${k.slice(-4)}` : "No key stored.";
     const list = $("#voices"); list.innerHTML = "";
-    const vs = synth ? synth.getVoices().filter((v) => /^en/i.test(v.lang)).slice(0, 6) : [];
-    if (!vs.length) { list.appendChild(el("p", "note", "Your phone's voices appear here. The finished app uses a studio-quality voice service.")); return; }
-    const cur = pickVoice();
+    const L = lang(); const vs = voicesFor(L.code).slice(0, 8);
+    if (!vs.length) { list.appendChild(el("p", "note", synth && synth.getVoices().length ? `No ${L.name} voice on this phone. Add one in your phone's text-to-speech settings, then reload. Until then, read the transcript.` : "Your phone's voices appear here. The finished app uses a studio-quality voice service.")); return; }
+    const cur = pickVoice(L.code);
     vs.forEach((v) => {
       const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(v.name)}</span><br><span class="small muted">${esc(v.lang)}</span></span><span class="small" style="color:var(--accent)">Preview</span>`);
       b.setAttribute("aria-pressed", String(cur && v.voiceURI === cur.voiceURI));
-      b.onclick = () => { state.voiceURI = v.voiceURI; save(); renderSettings(); synth.cancel(); const u = new SpeechSynthesisUtterance("Start with the sky."); u.voice = v; u.rate = state.rate; synth.speak(u); };
+      b.onclick = () => { state[voiceKey(L.code)] = v.voiceURI; save(); renderSettings(); synth.cancel(); const u = new SpeechSynthesisUtterance(L.lead("", "", "", "").replace(/\.$/, "") || "Hello"); u.voice = v; u.lang = v.lang; u.rate = state.rate; synth.speak(u); };
       list.appendChild(b);
     });
   }
