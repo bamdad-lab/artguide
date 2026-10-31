@@ -217,7 +217,7 @@ a.link, .links a { color: var(--accent); }
     <p class="muted">This test version calls Claude directly from your phone. Paste an Anthropic API key from <a class="link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
     <div class="group">
       <label for="key">API key</label>
-      <input class="field mono" id="key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+      <input class="field mono" id="key" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-ant-…">
     </div>
     <p class="caveat">The key is stored only in this browser on this phone and sent only to Anthropic. Use a key with a low spending limit, and don't use this on a shared phone. The finished app keeps keys on a server instead.</p>
     <button class="btn block" id="key-save">Save and continue</button>
@@ -431,8 +431,12 @@ a.link, .links a { color: var(--accent); }
 
   // ---------- key ----------
   $("#key-save").onclick = async () => {
-    const k = $("#key").value.trim(); const err = $("#key-err");
-    if (!/^sk-ant-/.test(k)) { err.textContent = "That doesn't look like an Anthropic key. It starts with sk-ant-."; err.hidden = false; return; }
+    // Phones add capitals, spaces, quotes or line breaks when pasting. Clean those up.
+    let k = $("#key").value.replace(/[\s"'`\u200b]/g, "");
+    if (/^sk-ant-/i.test(k)) k = "sk-ant-" + k.slice(7);
+    const err = $("#key-err");
+    if (!k) { err.textContent = "Paste your API key first."; err.hidden = false; return; }
+    if (!/^sk-ant-/.test(k)) { err.textContent = `This starts with "${k.slice(0, 6)}", but Anthropic API keys start with "sk-ant-". Copy the key again from console.anthropic.com → API keys. A claude.ai subscription doesn't come with one.`; err.hidden = false; return; }
     err.textContent = "Checking the key…"; err.hidden = false; $("#key-save").disabled = true;
     try {
       const r = await fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
