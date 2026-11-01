@@ -72,6 +72,12 @@ p { margin: 0; }
 .hist-item { display: flex; flex-direction: column; gap: 8px; }
 .hist[aria-expanded="true"] { outline: 1px solid var(--accent); }
 .btn.danger { color: var(--stop); }
+.tablewrap { overflow-x: auto; }
+table.mt { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.mt th, table.mt td { padding: 6px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.mt th:first-child, table.mt td:first-child { text-align: left; }
+table.mt th { color: var(--muted); font-weight: 400; font-size: 12px; }
+table.mt td.bad { color: var(--stop); font-weight: 700; }
 select.field { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 40px; }
 .note { font-size: 13px; color: var(--muted); }
 .field { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); font: inherit; }
@@ -274,7 +280,7 @@ a.link, .links a { color: var(--accent); }
 
   <!-- Scan -->
   <section class="screen" id="s-scan" hidden>
-    <button class="where" id="where-btn"><span class="grow"><span class="eyebrow">You are at</span><br><span class="v" id="where-line"></span></span><span class="small" style="color:var(--accent)">Change</span></button>
+    <button class="where" id="where-btn"><span class="grow"><span class="eyebrow">You are at</span><br><span class="v" id="where-line"></span><span class="small muted" id="model-line"></span></span><span class="small" style="color:var(--accent)">Change</span></button>
     <div class="capture" id="capture">
       <video id="video" playsinline muted autoplay></video>
       <div class="empty" id="cap-empty">
@@ -340,6 +346,7 @@ a.link, .links a { color: var(--accent); }
     </div>
     <details class="why" id="p-why"><summary>Why Claude thinks it's this work</summary><ul id="p-why-list"></ul></details>
     <p class="small links" id="p-links"></p>
+    <p class="note mono" id="p-cost"></p>
     <button class="btn block" data-goto="scan">Scan next work</button>
   </section>
 
@@ -368,6 +375,7 @@ a.link, .links a { color: var(--accent); }
   <section class="screen" id="s-history" hidden>
     <div class="top"><span class="brand">Your scans</span><span class="eyebrow" id="hist-count"></span></div>
     <div class="stats" id="stats"></div>
+    <div id="model-table"></div>
     <p class="note" id="hist-note"></p>
     <button class="btn ghost block" id="export">Export scans and photos (JSON)</button>
     <div class="list" id="hist"></div>
@@ -376,6 +384,11 @@ a.link, .links a { color: var(--accent); }
   <!-- Settings -->
   <section class="screen" id="s-settings" hidden>
     <div class="top"><span class="brand">Settings</span></div>
+    <div class="group">
+      <span class="lbl">Model</span>
+      <div class="list" id="models"></div>
+      <p class="note">Each scan records which model it used, so you can compare them in Your scans.</p>
+    </div>
     <div class="group">
       <label for="lang-set">Narration language</label>
       <select class="field" id="lang-set"></select>
@@ -400,7 +413,7 @@ a.link, .links a { color: var(--accent); }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Remove key from this phone</button>
     </div>
-    <p class="note mono">Version 2026-10-31d · edit history</p>
+    <p class="note mono">Version 2026-11-01a · model picker and cost</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -470,7 +483,7 @@ a.link, .links a { color: var(--accent); }
 
   // ---------- settings (this phone only) ----------
   const state = { setting: "museum", museum: "", exhibition: "", homeKind: "print", length: "standard", angle: "general",
-    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [], venueSet: false, lang: null };
+    voiceURI: null, rate: 1, autoplay: true, savePhoto: true, recentMuseums: [], recentExhibitions: [], venueSet: false, lang: null, model: "claude-opus-5-5" };
   try { Object.assign(state, JSON.parse(localStorage.getItem("ge-standalone") || "{}")); } catch (e) {}
   const save = () => { try { localStorage.setItem("ge-standalone", JSON.stringify(state)); } catch (e) {} };
   if (!state.lang) state.lang = guessLang();
@@ -502,7 +515,7 @@ a.link, .links a { color: var(--accent); }
     const tab = ["history", "settings"].includes(name) ? name : "scan";
     document.querySelectorAll(".nav button").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
     if (name !== "player") player.stop();
-    if (name === "scan") { $("#where-line").textContent = whereText(); $("#lib").value = ""; startCamera(true); } else stopCamera();
+    if (name === "scan") { $("#where-line").textContent = whereText(); $("#model-line").textContent = "Model: " + model().name; $("#lib").value = ""; startCamera(true); } else stopCamera();
     if (name === "venue") renderVenue();
     if (name === "history") renderHistory();
     if (name === "settings") renderSettings();
@@ -616,22 +629,58 @@ a.link, .links a { color: var(--accent); }
   const dataUrl = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(blob); });
 
   // ---------- Claude ----------
-  const MODEL = "claude-opus-5-5";
+  // ---------- models and cost ----------
+  // List prices per million tokens [input, output]. Haiku 5.5 charges more above 100K input tokens.
+  const MODELS = [
+    { id: "claude-opus-5-5", name: "Opus 5.5", note: "Most capable, about 4¢ a scan", price: [4, 20], fallback: true, search: "web_search_20260209" },
+    { id: "claude-sonnet-5-5", name: "Sonnet 5.5", note: "Half the price of Opus", price: [2, 10], fallback: true, search: "web_search_20260209" },
+    { id: "claude-haiku-5-5", name: "Haiku 5.5", note: "About 1/40 the price, may know fewer works", price: [0.1, 0.5], priceOver100k: [0.5, 2.5], fallback: false, search: "web_search_20250305" },
+  ];
+  // Models a refusal fallback may hand the request to, so the cost uses the model that actually ran.
+  const OTHER_PRICES = { "claude-opus-5": [5, 25], "claude-opus-4-8": [5, 25], "claude-opus-4-7": [5, 25], "claude-sonnet-5": [2, 10], "claude-fable-5-1": [10, 50] };
+  const SEARCH_PRICE = 0.01; // $10 per 1,000 searches
+  const model = () => MODELS.find((m) => m.id === state.model) || MODELS[0];
+  const modelName = (id) => (MODELS.find((m) => m.id === id) || {}).name || id || "Unknown";
+  function priceFor(id, inputTokens) {
+    const m = MODELS.find((x) => x.id === id);
+    if (m) return m.priceOver100k && inputTokens > 100000 ? m.priceOver100k : m.price;
+    const key = Object.keys(OTHER_PRICES).find((k) => (id || "").startsWith(k));
+    return key ? OTHER_PRICES[key] : null;
+  }
+  const newMeter = () => ({ calls: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, searches: 0, usd: 0, served: [], approx: false });
+  function meter(j, requested) {
+    if (!current) return;
+    const u = j.usage || {}, m = current.meter;
+    const inTok = (u.input_tokens || 0), out = (u.output_tokens || 0), cr = (u.cache_read_input_tokens || 0), cw = (u.cache_creation_input_tokens || 0);
+    const searches = u.server_tool_use?.web_search_requests || 0;
+    const served = j.model || requested;
+    let p = priceFor(served, inTok + cr + cw);
+    if (!p) { p = priceFor(requested, inTok); m.approx = true; }
+    m.calls++; m.input += inTok; m.output += out; m.cacheRead += cr; m.cacheWrite += cw; m.searches += searches;
+    m.usd += (inTok * p[0] + cw * p[0] * 1.25 + cr * p[0] * 0.1 + out * p[1]) / 1e6 + searches * SEARCH_PRICE;
+    if (!m.served.includes(served)) m.served.push(served);
+  }
+  const fmtUsd = (x) => x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(3)}`;
+  const fmtTok = (n) => n.toLocaleString();
+
+  async function callClaude(body, signal) {
+    const m = model();
+    body = { ...body, model: m.id };
+    const headers = { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
+    if (m.fallback) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal, headers, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) meter(j, m.id);
+    if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
+    if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
+    return j;
+  }
   async function askClaude(prompt, schema, withImage, signal) {
     const content = [];
     if (withImage) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await b64(photo.blob) } });
     content.push({ type: "text", text: prompt });
-    const body = { model: MODEL, max_tokens: 8000, messages: [{ role: "user", content }],
-      output_config: { effort: "medium", format: { type: "json_schema", schema } }, fallbacks: "default" };
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", signal,
-      headers: { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01",
-        "anthropic-beta": "server-side-fallback-2026-07-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
-    if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
+    const j = await callClaude({ max_tokens: 8000, messages: [{ role: "user", content }],
+      output_config: { effort: "medium", format: { type: "json_schema", schema } } }, signal);
     const text = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
     return JSON.parse(text);
   }
@@ -689,10 +738,11 @@ ${langRule()}`;
     mark(s[0], "done", `${Math.round(photo.blob.size / 1024)} KB, sized for upload`);
     mark(s[1], "doing");
     ctl = new AbortController(); const t0 = performance.now();
+    current = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), meter: newMeter(), model: state.model };
     try {
       const r = await askClaude(idPrompt(), ID_SCHEMA, true, ctl.signal);
       r.elapsed = Math.round((performance.now() - t0) / 1000); r.lang = state.lang;
-      current = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), result: r };
+      current.result = r;
       const name = r.title ? `${r.title}${r.artist ? ", " + r.artist : ""}` : r.series_name || "Not recognised";
       mark(s[1], "done", r.status === "unknown" ? "Not recognised" : name);
       await logScan(r);
@@ -702,6 +752,7 @@ ${langRule()}`;
     } catch (e) {
       if (e.name === "AbortError") return;
       mark(s[1], "fail", errText(e)); $("#ident-retry").hidden = false;
+      if (current.meter.calls) logFailed(e); // a call that answered but failed parsing still cost money
     }
   }
   async function narrateFor(cand, series) {
@@ -720,7 +771,7 @@ ${langRule()}`;
       const b = el("button", "cand", `<span class="t">${esc(cand.title)}</span><span class="small muted">${esc([cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small tell">${esc(cand.tell || "")}</span>`);
       b.onclick = async () => {
         b.disabled = true; b.querySelector(".tell").textContent = "Writing commentary…";
-        try { const n = await narrateFor(cand, r); await updateScan({ picked: cand.title }); openPlayer({ ...r, ...n, lang: state.lang }, "confirmed"); }
+        try { const n = await narrateFor(cand, r); await updateScan({ picked: cand.title, usage: usageRow() }); openPlayer({ ...r, ...n, lang: state.lang }, "confirmed"); }
         catch (e) { toast(errText(e)); b.disabled = false; b.querySelector(".tell").textContent = cand.tell || ""; }
       };
       c.appendChild(b);
@@ -770,6 +821,7 @@ ${langRule()}`;
     renderVerdict("#verdict", isSeries ? "series" : "identified");
     if (current) current.shown = r;
     resetDeep(r, mode);
+    showCost();
     show("player");
     if (state.autoplay) player.play();
   }
@@ -806,16 +858,8 @@ Rules:
     const messages = [{ role: "user", content }];
     const blocks = [];
     for (let round = 0; round < 4; round++) {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", signal,
-        headers: { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01",
-          "anthropic-beta": "server-side-fallback-2026-07-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: MODEL, max_tokens: 16000, messages, fallbacks: "default", output_config: { effort: "medium" },
-          tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }] }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
-      if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
+      const j = await callClaude({ max_tokens: 16000, messages, output_config: { effort: "medium" },
+        tools: [{ type: model().search, name: "web_search", max_uses: 6 }] }, signal);
       for (const b of j.content || []) {
         if (b.type === "server_tool_use" && b.input?.query) onSearch(b.input.query);
         blocks.push(b);
@@ -868,10 +912,12 @@ Rules:
       mark(s[0], "done", queries.length ? `${queries.length} search${queries.length === 1 ? "" : "es"}` : "No searches made"); mark(s[1], "done");
       deepResult = renderDeep(blocks);
       st.hidden = true;
-      updateScan({ deep: { at: Date.now(), language: state.lang, queries, sources: deepResult.sources.map((x) => x.url) } }).catch(() => {});
+      updateScan({ deep: { at: Date.now(), language: state.lang, queries, sources: deepResult.sources.map((x) => x.url) }, usage: usageRow() }).catch(() => {});
+      showCost();
     } catch (e) {
       if (e.name === "AbortError") return;
       mark(s[0], "fail", errText(e)); $("#deep-go").hidden = false; $("#deep-go").textContent = "Try again";
+      updateScan({ usage: usageRow() }).catch(() => {}); showCost();
     }
   };
   $("#deep-listen").onclick = () => {
@@ -909,11 +955,20 @@ Rules:
   async function logScan(r) {
     const row = { id: current.id, at: Date.now(), setting: state.setting, museum: state.setting === "museum" ? state.museum : null,
       exhibition: state.setting === "museum" ? (state.exhibition || null) : null, homeKind: state.setting === "home" ? state.homeKind : null,
-      model: MODEL, status: r.status, title: r.title, artist: r.artist, date: r.date, heldBy: r.held_by, seriesName: r.series_name,
+      model: current.model, status: r.status, title: r.title, artist: r.artist, date: r.date, heldBy: r.held_by, seriesName: r.series_name,
       candidates: (r.candidates || []).map((c) => c.title), labelText: r.label_text, confidence: r.confidence, evidence: r.evidence,
-      angle: state.angle, length: state.length, language: r.lang, seconds: r.elapsed, verdict: null, truth: null,
+      angle: state.angle, length: state.length, language: r.lang, seconds: r.elapsed, verdict: null, truth: null, usage: usageRow(),
       photo: state.savePhoto ? photo.blob : null };
     try { await putScan(row); } catch (e) {}
+  }
+  const usageRow = () => { const m = current.meter; return { calls: m.calls, inputTokens: m.input, outputTokens: m.output, cacheReadTokens: m.cacheRead, cacheWriteTokens: m.cacheWrite, searches: m.searches, usd: +m.usd.toFixed(5), servedBy: m.served, approximate: m.approx }; };
+  async function logFailed(e) {
+    try { await putScan({ id: current.id, at: Date.now(), setting: state.setting, museum: state.setting === "museum" ? state.museum : null, exhibition: state.setting === "museum" ? (state.exhibition || null) : null, homeKind: state.setting === "home" ? state.homeKind : null, model: current.model, status: "error", error: String(e.message || e).slice(0, 200), language: state.lang, verdict: null, truth: null, usage: usageRow(), photo: state.savePhoto ? photo.blob : null }); } catch (x) {}
+  }
+  function showCost() {
+    const box = $("#p-cost"); if (!box || !current?.meter) return;
+    const m = current.meter;
+    box.textContent = `This scan: ${fmtTok(m.input + m.cacheRead + m.cacheWrite)} tokens in, ${fmtTok(m.output)} out${m.searches ? `, ${m.searches} searches` : ""} · ${m.approx ? "about " : ""}${fmtUsd(m.usd)} · ${m.served.map(modelName).join(", ")}`;
   }
   async function updateScan(patch) { const row = await getScan(current.id); if (!row) throw new Error("missing"); await putScan({ ...row, ...patch }); }
 
@@ -927,17 +982,18 @@ Rules:
     $("#stats").innerHTML = `<div class="stat"><b>${scans.length}</b><span>scans</span></div><div class="stat"><b>${right}</b><span>named, right</span></div><div class="stat"><b style="color:var(--stop)">${wrong}</b><span>named, wrong</span></div>`;
     $("#hist-note").textContent = scans.length ? "Tap a scan to change its answer or delete it. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
     $("#hist-count").textContent = `${answered.length} answered`;
+    renderModelTable(scans);
     $("#export").hidden = !scans.length;
     const h = $("#hist"); h.innerHTML = "";
     scans.forEach((s) => {
       const name = s.status === "unknown" ? "Not identified" : (s.title || s.seriesName || "Untitled");
       const where = s.setting === "home" ? `At home · ${s.homeKind}` : [s.museum, s.exhibition].filter(Boolean).join(" · ");
-      const [cls, label] = VERDICT_LABEL[s.verdict] || ["", "No answer"];
+      const [cls, label] = s.status === "error" ? ["stop", "Failed"] : VERDICT_LABEL[s.verdict] || ["", "No answer"];
       let img = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 16l5-5 4 4 3-3 4 4"/></svg>`;
       if (s.photo) { const u = URL.createObjectURL(s.photo); thumbUrls.push(u); img = `<img src="${u}" alt="">`; }
       const when = new Date(s.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       const item = el("div", "hist-item");
-      const row = el("button", "hist", `<div class="thumb">${img}</div><div style="min-width:0"><div class="t" dir="auto">${esc(name)}</div><div class="small muted" dir="auto">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div><div class="small muted">${esc(when)}</div>${s.truth ? `<div class="small" dir="auto">Actually: ${esc(s.truth)}</div>` : ""}</div><span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`);
+      const row = el("button", "hist", `<div class="thumb">${img}</div><div style="min-width:0"><div class="t" dir="auto">${esc(name)}</div><div class="small muted" dir="auto">${esc(s.artist || "")}${s.artist ? " · " : ""}${esc(where)}</div><div class="small muted">${esc(when)} · ${esc(modelName(s.model))}${s.usage ? " · " + (s.usage.approximate ? "~" : "") + fmtUsd(s.usage.usd) : ""}</div>${s.status === "error" ? `<div class="small" style="color:var(--stop)">Failed: ${esc(s.error || "")}</div>` : ""}${s.truth ? `<div class="small" dir="auto">Actually: ${esc(s.truth)}</div>` : ""}</div><span class="chip ${cls}"><span class="dot"></span>${esc(label)}</span>`);
       row.setAttribute("aria-expanded", "false");
       row.onclick = () => {
         const open = row.getAttribute("aria-expanded") === "true";
@@ -948,11 +1004,38 @@ Rules:
       item.appendChild(row); h.appendChild(item);
     });
   }
+  function renderModelTable(scans) {
+    const box = $("#model-table");
+    const by = {};
+    scans.forEach((s) => { const k = s.model || "claude-opus-5-5"; (by[k] = by[k] || []).push(s); });
+    const rows = Object.entries(by).map(([id, list]) => {
+      const named = list.filter((s) => s.status === "identified" || (s.status === "series" && s.picked && s.picked !== "series"));
+      const judged = named.filter((s) => s.verdict && s.verdict !== "unsure");
+      const right = judged.filter((s) => s.verdict === "right").length;
+      const wrong = judged.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
+      const refused = list.filter((s) => s.status === "unknown").length;
+      const series = list.filter((s) => s.status === "series").length;
+      const priced = list.filter((s) => s.usage);
+      const total = priced.reduce((a, s) => a + s.usage.usd, 0);
+      return { id, n: list.length, right, wrong, judged: judged.length, refused, series, avg: priced.length ? total / priced.length : null, total };
+    }).sort((a, b) => b.n - a.n);
+    if (!rows.length) { box.innerHTML = ""; return; }
+    box.innerHTML = `<p class="eyebrow" style="margin-bottom:6px">By model</p><div class="tablewrap"><table class="mt">
+      <thead><tr><th>Model</th><th>Scans</th><th>Right</th><th>Wrong</th><th>Lookalike</th><th>Refused</th><th>Avg cost</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${esc(modelName(r.id))}</td><td>${r.n}</td><td>${r.right}</td><td class="${r.wrong ? "bad" : ""}">${r.wrong}</td><td>${r.series}</td><td>${r.refused}</td><td>${r.avg == null ? "–" : fmtUsd(r.avg)}</td></tr>`).join("")}</tbody>
+    </table></div><p class="note">Right and Wrong count only named works you answered. Total spent: ${fmtUsd(rows.reduce((a, r) => a + r.total, 0))}. Compare models on the same artworks, or the numbers mislead.</p>`;
+  }
   // Which answers fit a scan: a series the user resolved by picking a version is judged like a named work.
   const kindOf = (s) => s.status === "unknown" ? "unknown" : s.status === "series" && (!s.picked || s.picked === "series") ? "series" : "identified";
   function editor(s) {
     const box = el("div", "hist-edit verdict");
     let pick = s.verdict || null, armed = false;
+    if (s.status === "error") {
+      box.innerHTML = `<p class="small muted">This scan failed, so there is nothing to judge. It still counts toward cost.</p><button class="btn ghost danger" data-del>Delete this scan</button>`;
+      const d = box.querySelector("[data-del]");
+      d.onclick = async () => { if (!armed) { armed = true; d.textContent = "Tap again to delete for good"; return; } await deleteScan(s.id); toast("Scan deleted."); renderHistory(); };
+      return box;
+    }
     box.innerHTML = `<span class="lbl">Was this right?</span>
       <div class="vgrid">${VERDICTS[kindOf(s)].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === pick}">${esc(l)}</button>`).join("")}</div>
       <input class="field" data-truth placeholder="Actual title and artist, from the label (optional)" value="${esc(s.truth || "")}">
@@ -1032,6 +1115,13 @@ Rules:
   // ---------- settings ----------
   function renderSettings() {
     fillLangSelect($("#lang-set"));
+    const ml = $("#models"); ml.innerHTML = "";
+    MODELS.forEach((m) => {
+      const b = el("button", "option", `<span class="radio"></span><span class="grow"><span class="title">${esc(m.name)}</span><br><span class="small muted">${esc(m.note)} · $${m.price[0]} / $${m.price[1]} per 1M tokens</span></span>`);
+      b.setAttribute("aria-pressed", String(m.id === model().id));
+      b.onclick = () => { state.model = m.id; save(); renderSettings(); toast(`Next scans use ${m.name}.`); };
+      ml.appendChild(b);
+    });
     segment("#set-length", "length"); segment("#set-angle", "angle");
     $("#autoplay").checked = state.autoplay; $("#savephoto").checked = state.savePhoto;
     $("#set-venue").textContent = whereText();
