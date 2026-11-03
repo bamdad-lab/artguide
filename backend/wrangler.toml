@@ -1,0 +1,16 @@
+name = "gallery-ear"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+# Pages the app is served from. Requests from anywhere else get no CORS access.
+ALLOWED_ORIGINS = "https://bamdad-lab.github.io"
+# Stop all Claude calls for the rest of the UTC day once this many dollars are spent.
+DAILY_USD_CAP = "5"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gallery-ear"
+database_id = "REPLACED_BY_DEPLOY_WORKFLOW"
+migrations_dir = "migrations"

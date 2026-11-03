@@ -259,15 +259,50 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   <!-- Key -->
   <section class="screen" id="s-key" hidden>
     <div class="top"><span class="brand">Gallery <i>Ear</i></span></div>
-    <h1>Connect to Claude</h1>
-    <p class="muted">This test version calls Claude directly from your phone. Paste an Anthropic API key from <a class="link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+    <h1>Join the test</h1>
+    <p class="muted">Point your phone at an artwork and hear about it. Enter the invite code you were sent.</p>
     <div class="group">
-      <label for="key">API key</label>
-      <input class="field mono" id="key" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-ant-…">
+      <label for="invite">Invite code</label>
+      <input class="field" id="invite" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="e.g. K7PQ2MXW9A" style="letter-spacing:.12em;text-transform:uppercase">
     </div>
-    <p class="caveat">The key is stored only in this browser on this phone and sent only to Anthropic. Use a key with a low spending limit, and don't use this on a shared phone. The finished app keeps keys on a server instead.</p>
-    <button class="btn block" id="key-save">Save and continue</button>
-    <p class="note" id="key-err" hidden></p>
+    <button class="btn block" id="invite-save">Continue</button>
+    <p class="note" id="invite-err" hidden></p>
+    <details class="why" id="own-key">
+      <summary>Use your own Anthropic API key instead</summary>
+      <div class="group" style="margin-top:12px">
+        <label for="key">API key</label>
+        <input class="field" id="key" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-ant-…">
+        <p class="note">Stored only on this phone and sent only to Anthropic. Scans stay on this phone and are not shared.</p>
+        <button class="btn ghost block" id="key-save">Use this key</button>
+        <p class="note" id="key-err" hidden></p>
+      </div>
+    </details>
+  </section>
+
+  <!-- Consent -->
+  <section class="screen" id="s-consent" hidden>
+    <div class="top"><span class="brand">Gallery <i>Ear</i></span></div>
+    <h1 id="consent-hello">Before you start</h1>
+    <p>This is a test of an audio guide. Your scans help measure how often it gets artworks right.</p>
+    <div class="group">
+      <span class="lbl">What is shared with the organiser</span>
+      <ul class="reasons" style="color:var(--ink)">
+        <li>The photos you scan, unless you turn that off in Settings</li>
+        <li>The museum or setting you type in</li>
+        <li>What the app said, and your "Was this right?" answers</li>
+        <li>Which AI model answered and what it cost</li>
+      </ul>
+    </div>
+    <div class="group">
+      <span class="lbl">What is not collected</span>
+      <ul class="reasons" style="color:var(--ink)">
+        <li>Your location, contacts, or anything outside this app</li>
+        <li>Your name, beyond the one on your invite</li>
+      </ul>
+    </div>
+    <p class="muted">Photos are sent to Anthropic's Claude to identify the artwork. You can delete any scan in Your scans. Avoid photographing people.</p>
+    <button class="btn block" id="consent-ok">I agree, start</button>
+    <button class="btn ghost block" id="consent-no">Not now</button>
   </section>
 
   <!-- Where are you -->
@@ -403,6 +438,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   <section class="screen" id="s-history" hidden>
     <div class="top"><span class="brand">Your scans</span><span class="eyebrow" id="hist-count"></span></div>
     <div class="stats" id="stats"></div>
+    <p class="note" id="sync-note"></p>
     <div id="model-table"></div>
     <p class="note" id="hist-note"></p>
     <button class="btn ghost block" id="export">Export scans and photos (JSON)</button>
@@ -437,11 +473,11 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     <div class="group"><span class="lbl">Where you are</span>
       <button class="option" data-goto="venue"><span class="grow"><span class="title" id="set-venue"></span><br><span class="small muted">Change</span></span></button>
     </div>
-    <div class="group"><span class="lbl">API key</span>
+    <div class="group"><span class="lbl">Account</span>
       <p class="small muted" id="key-line"></p>
-      <button class="btn ghost" id="key-remove">Remove key from this phone</button>
+      <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-03a · new design, installable</p>
+    <p class="note mono">Version 2026-11-03b · invites and shared results</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -452,6 +488,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   <div class="toast" id="toast" role="status"></div>
 </div>
 
+<script src="config.js"></script>
 <script>
 (() => {
   const $ = (s) => document.querySelector(s);
@@ -520,8 +557,18 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     sel.value = state.lang;
     sel.onchange = () => { state.lang = sel.value; save(); if (!$("#s-settings").hidden) renderSettings(); checkVoice(true); };
   }
-  const getKey = () => { try { return localStorage.getItem("ge-key") || ""; } catch (e) { return ""; } };
-  const setKey = (k) => { try { k ? localStorage.setItem("ge-key", k) : localStorage.removeItem("ge-key"); } catch (e) {} };
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ""; v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { return ""; } };
+  const getKey = () => ls("ge-key");
+  const setKey = (k) => ls("ge-key", k || null);
+  const API = (window.GALLERY_EAR_API || "").replace(/\/+$/, "");
+  const inviteCode = () => ls("ge-invite");
+  const mode = () => inviteCode() && API ? "invite" : getKey() ? "key" : null;
+  async function api(path, opts = {}) {
+    const r = await fetch(API + path, { ...opts, headers: { "content-type": "application/json", authorization: "Bearer " + inviteCode(), ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error?.message || "HTTP " + r.status); e.status = r.status; e.type = j.error?.type; e.server = true; throw e; }
+    return j;
+  }
 
   // ---------- scan log (IndexedDB, this phone only) ----------
   const idb = new Promise((res, rej) => {
@@ -530,16 +577,50 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
   async function store(mode, fn) { const d = await idb; return new Promise((res, rej) => { const tx = d.transaction("scans", mode); const out = fn(tx.objectStore("scans")); tx.oncomplete = () => res(out && out.result); tx.onerror = () => rej(tx.error); }); }
-  const putScan = (row) => store("readwrite", (s) => s.put(row));
+  const putLocal = (row) => store("readwrite", (s) => s.put(row));
+  const putScan = async (row) => { await putLocal({ ...row, rev: Date.now() + Math.random() }); syncSoon(); };
   const getScan = (id) => store("readonly", (s) => s.get(id));
   const allScans = () => store("readonly", (s) => s.getAll());
-  const deleteScan = (id) => store("readwrite", (s) => s.delete(id));
+  const deleteLocal = (id) => store("readwrite", (s) => s.delete(id));
+  const deleteScan = async (id) => {
+    await deleteLocal(id);
+    if (mode() === "invite") { const t = JSON.parse(ls("ge-tombstones") || "[]"); t.push(id); ls("ge-tombstones", JSON.stringify(t)); syncSoon(); }
+  };
+  // Upload anything changed since its last upload. Runs after each change, on start and when back online.
+  let syncTimer = null, syncing = false;
+  function syncSoon() { if (mode() !== "invite") return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 600); }
+  async function syncNow() {
+    if (syncing || mode() !== "invite" || !navigator.onLine) return;
+    syncing = true;
+    try {
+      for (const id of JSON.parse(ls("ge-tombstones") || "[]")) {
+        try { await api("/api/scans/" + encodeURIComponent(id), { method: "DELETE" }); } catch (e) { if (e.status !== 404 && e.status !== 403) throw e; }
+        ls("ge-tombstones", JSON.stringify(JSON.parse(ls("ge-tombstones") || "[]").filter((x) => x !== id)));
+      }
+      const rows = (await allScans()).filter((r) => r.rev && r.rev !== r.syncedRev);
+      for (const row of rows) {
+        const { photo, rev, syncedRev, photoUploaded, ...data } = row;
+        const sendPhoto = !photoUploaded && photo && state.savePhoto !== false;
+        await api("/api/scans/" + encodeURIComponent(row.id), { method: "PUT", body: JSON.stringify({ data, ...(sendPhoto ? { photo: await dataUrl(photo) } : {}) }) });
+        const now = await getScan(row.id);
+        if (now) await putLocal({ ...now, syncedRev: rev, photoUploaded: photoUploaded || !!sendPhoto });
+      }
+    } catch (e) { /* try again on the next change or reconnect */ }
+    finally { syncing = false; if (!$("#s-history").hidden) renderPendingNote(); }
+  }
+  window.addEventListener("online", syncSoon);
+  async function renderPendingNote() {
+    if (mode() !== "invite") return;
+    const pending = (await allScans()).filter((r) => r.rev && r.rev !== r.syncedRev).length;
+    const n = $("#sync-note"); if (!n) return;
+    n.textContent = pending ? `${pending} scan${pending === 1 ? "" : "s"} waiting to upload. They'll go when you're online.` : "All scans uploaded.";
+  }
 
   // ---------- navigation ----------
-  const SCREENS = ["key", "venue", "scan", "ident", "player", "pick", "refuse", "history", "settings"];
+  const SCREENS = ["key", "consent", "venue", "scan", "ident", "player", "pick", "refuse", "history", "settings"];
   function show(name) {
     SCREENS.forEach((s) => ($("#s-" + s).hidden = s !== name));
-    $("#nav").hidden = ["key", "venue", "ident"].includes(name);
+    $("#nav").hidden = ["key", "consent", "venue", "ident"].includes(name);
     const tab = ["history", "settings"].includes(name) ? name : "scan";
     document.querySelectorAll(".nav button").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
     if (name !== "player") player.stop();
@@ -560,7 +641,30 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     });
   }
 
-  // ---------- key ----------
+  // ---------- sign in ----------
+  async function joinWith(raw) {
+    const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const err = $("#invite-err");
+    if (!API) { err.textContent = "Invites aren't switched on yet. Ask the organiser."; err.hidden = false; return; }
+    if (code.length < 6) { err.textContent = "Type the whole code from your invite."; err.hidden = false; return; }
+    err.textContent = "Checking…"; err.hidden = false; $("#invite-save").disabled = true;
+    try {
+      const r = await fetch(API + "/api/me", { headers: { authorization: "Bearer " + code } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { err.textContent = j.error?.type === "disabled" ? "This invite has been switched off. Ask the organiser." : "That code wasn't recognised. Check it and try again."; return; }
+      ls("ge-invite", code); ls("ge-invite-name", j.name || ""); setKey("");
+      err.hidden = true; $("#invite").value = "";
+      history.replaceState(null, "", location.pathname);
+      show(ls("ge-consent") === code ? (state.venueSet ? "scan" : "venue") : "consent");
+      syncSoon();
+    } catch (e) { err.textContent = "Couldn't reach the server. Check your connection."; }
+    finally { $("#invite-save").disabled = false; }
+  }
+  $("#invite-save").onclick = () => joinWith($("#invite").value);
+  $("#invite").addEventListener("keydown", (e) => { if (e.key === "Enter") joinWith($("#invite").value); });
+  $("#consent-ok").onclick = () => { ls("ge-consent", inviteCode()); show(state.venueSet ? "scan" : "venue"); };
+  $("#consent-no").onclick = () => { ls("ge-invite", null); show("key"); };
+
   $("#key-save").onclick = async () => {
     // Phones add capitals, spaces, quotes or line breaks when pasting. Clean those up.
     let k = $("#key").value.replace(/[\s"'`\u200b]/g, "");
@@ -572,7 +676,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     try {
       const r = await fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
       if (r.status === 401) { err.textContent = "Anthropic rejected this key. Check you copied all of it."; return; }
-      setKey(k); $("#key").value = ""; err.hidden = true;
+      setKey(k); ls("ge-invite", null); $("#key").value = ""; err.hidden = true;
       show(state.venueSet ? "scan" : "venue");
     } catch (e) { err.textContent = "Couldn't reach Anthropic. Check your connection."; }
     finally { $("#key-save").disabled = false; }
@@ -694,12 +798,18 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   async function callClaude(body, signal) {
     const m = model();
     body = { ...body, model: m.id };
-    const headers = { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
-    if (m.fallback) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
-    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal, headers, body: JSON.stringify(body) });
+    let r;
+    if (mode() === "invite") {
+      // The backend holds the key, adds fallbacks and enforces the limits.
+      r = await fetch(API + "/api/messages", { method: "POST", signal, headers: { "content-type": "application/json", authorization: "Bearer " + inviteCode() }, body: JSON.stringify(body) });
+    } else {
+      const headers = { "content-type": "application/json", "x-api-key": getKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" };
+      if (m.fallback) { body.fallbacks = "default"; headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; }
+      r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", signal, headers, body: JSON.stringify(body) });
+    }
     const j = await r.json().catch(() => ({}));
     if (r.ok) meter(j, m.id);
-    if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
+    if (!r.ok) { const e = new Error(j.error?.message || ("HTTP " + r.status)); e.status = r.status; e.type = j.error?.type; throw e; }
     if (j.stop_reason === "refusal") { const e = new Error("Claude declined this request."); e.status = "refusal"; throw e; }
     return j;
   }
@@ -752,7 +862,9 @@ ${langRule()}`;
   $("#ident-retry").onclick = () => show("scan");
   function steps(list, target) { const ol = target || $("#steps"); ol.innerHTML = ""; return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; }); }
   const mark = (li, cls, detail) => { li.className = cls; if (detail != null) li.querySelector(".detail").textContent = detail; };
-  const errText = (e) => e.status === 401 ? "The API key was rejected. Replace it in Settings."
+  const errText = (e) => ["daily_limit", "budget", "disabled"].includes(e.type) ? e.message
+    : e.status === 401 && mode() === "invite" ? "Your invite code stopped working. Ask the organiser."
+    : e.status === 401 ? "The API key was rejected. Replace it in Settings."
     : e.status === 429 ? "Rate limit hit. Wait a minute, then retake."
     : e.status === 400 && /credit|billing/i.test(e.message) ? "Your Anthropic account is out of credit."
     : e.status === "refusal" ? "Claude declined this photo."
@@ -968,7 +1080,7 @@ Rules:
       <div class="vgrid">${VERDICTS[kind].map(([v, l]) => `<button data-v="${v}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>
       <input class="field" id="${p}-truth" placeholder="Actual title and artist, from the label (optional)">
       <button class="btn ghost" id="${p}-save">Save answer</button>
-      <p class="note" id="${p}-status">Saved on this phone with where you are. Export it from Your scans.</p>`;
+      <p class="note" id="${p}-status">${mode() === "invite" ? "Shared with the test organiser, with where you are." : "Saved on this phone with where you are. Export it from Your scans."}</p>`;
     let pick = null;
     box.querySelectorAll(".vgrid button").forEach((b) => b.onclick = () => { pick = b.dataset.v; box.querySelectorAll(".vgrid button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); });
     box.querySelector(`#${p}-save`).onclick = async (ev) => {
@@ -1011,6 +1123,7 @@ Rules:
     $("#hist-note").textContent = scans.length ? "Tap a scan to change its answer or delete it. Named-but-wrong is the number that matters most." : "No scans yet. Take a photo of an artwork to start.";
     $("#hist-count").textContent = `${answered.length} answered`;
     renderModelTable(scans);
+    $("#sync-note").hidden = mode() !== "invite"; renderPendingNote(); syncSoon();
     $("#export").hidden = !scans.length;
     const h = $("#hist"); h.innerHTML = "";
     scans.forEach((s) => {
@@ -1153,7 +1266,9 @@ Rules:
     segment("#set-length", "length"); segment("#set-angle", "angle");
     $("#autoplay").checked = state.autoplay; $("#savephoto").checked = state.savePhoto;
     $("#set-venue").textContent = whereText();
-    const k = getKey(); $("#key-line").textContent = k ? `Stored on this phone: ${k.slice(0, 10)}…${k.slice(-4)}` : "No key stored.";
+    const k = getKey();
+    $("#key-line").textContent = mode() === "invite" ? `Joined with an invite${ls("ge-invite-name") ? " for " + ls("ge-invite-name") : ""}. Scans are shared with the organiser.`
+      : k ? `Using your own API key: ${k.slice(0, 10)}…${k.slice(-4)}. Scans stay on this phone.` : "Not signed in.";
     const list = $("#voices"); list.innerHTML = "";
     const L = lang(); const vs = voicesFor(L.code).slice(0, 8);
     if (!vs.length) { list.appendChild(el("p", "note", synth && synth.getVoices().length ? `No ${L.name} voice on this phone. Add one in your phone's text-to-speech settings, then reload. Until then, read the transcript.` : "Your phone's voices appear here. The finished app uses a studio-quality voice service.")); return; }
@@ -1167,7 +1282,7 @@ Rules:
   }
   $("#autoplay").onchange = (e) => { state.autoplay = e.target.checked; save(); };
   $("#savephoto").onchange = (e) => { state.savePhoto = e.target.checked; save(); };
-  $("#key-remove").onclick = () => { setKey(""); show("key"); };
+  $("#key-remove").onclick = () => { setKey(""); ls("ge-invite", null); ls("ge-invite-name", null); show("key"); };
   if (synth) synth.onvoiceschanged = () => { if (!$("#s-settings").hidden) renderSettings(); };
 
   // ---------- install as an app ----------
@@ -1189,7 +1304,12 @@ Rules:
   }
 
   // ---------- boot ----------
-  show(!getKey() ? "key" : state.venueSet ? "scan" : "venue");
+  const invited = new URLSearchParams(location.search).get("invite");
+  if (invited) { $("#invite").value = invited.toUpperCase(); show("key"); joinWith(invited); }
+  else if (!mode()) show("key");
+  else if (mode() === "invite" && ls("ge-consent") !== inviteCode()) show("consent");
+  else show(state.venueSet ? "scan" : "venue");
+  syncSoon();
 })();
 </script>
 
