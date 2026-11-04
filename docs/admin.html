@@ -99,10 +99,19 @@ td.num, th.num { text-align: right; white-space: nowrap; }
     <section>
       <h2>Results by model</h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>Model</th><th class="num">Scans</th><th class="num">Named right</th><th class="num">Named wrong</th><th class="num">Checks agreed</th><th class="num">Picked by user</th><th class="num">Series</th><th class="num">Refused</th><th class="num">Failed</th><th class="num">Avg cost</th></tr></thead>
+        <thead><tr><th>Model</th><th class="num">Scans</th><th class="num">App named, right</th><th class="num">App named, wrong</th><th class="num">Checks agreed</th><th class="num">Picked by user</th><th class="num">Series</th><th class="num">Refused</th><th class="num">Failed</th><th class="num">Avg cost</th></tr></thead>
         <tbody id="models"></tbody>
       </table></div>
-      <p class="note">Right and wrong count only named works someone answered, including ones they picked from suggestions. Named wrong is the number that matters. Checks agreed means Claude and Google image search named the same work. The model column shows the model that identified the work; image search costs are counted separately above.</p>
+      <p class="note">App named counts works the app presented by itself, without asking, that someone answered. App named, wrong is the number that matters. Works people picked from suggestions are in the next table. Checks agreed means Claude and Google image search named the same work. Image search costs are counted separately above.</p>
+    </section>
+
+    <section>
+      <h2>Suggestions</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Kind of suggestion</th><th class="num">Picked</th><th class="num">Right</th><th class="num">Wrong</th><th class="num">Can't tell</th><th class="num">No answer</th><th class="num">Right rate</th></tr></thead>
+        <tbody id="sugg"></tbody>
+      </table></div>
+      <p class="note" id="sugg-note"></p>
     </section>
 
     <section>
@@ -170,7 +179,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
     const by = {};
     scans.forEach((s) => { (by[s.model] = by[s.model] || []).push(s); });
     $("#models").innerHTML = Object.entries(by).map(([id, list]) => {
-      const named = list.filter((s) => isPicked(s) || (s.status === "identified" && !s.picked));
+      const named = list.filter((s) => s.status === "identified" && !s.picked);
       const judged = named.filter((s) => s.verdict && s.verdict !== "unsure");
       const priced = list.filter((s) => s.usage);
       const avg = priced.length ? priced.reduce((a, s) => a + s.usage.usd, 0) / priced.length : null;
@@ -179,6 +188,23 @@ td.num, th.num { text-align: right; white-space: nowrap; }
         <td class="num ${wrong ? "bad" : ""}">${wrong}</td><td class="num">${list.filter((s) => s.check === "agree").length}</td><td class="num">${list.filter(isPicked).length}</td><td class="num">${list.filter((s) => s.status === "series" && !isPicked(s) && s.picked !== "none").length}</td>
         <td class="num">${list.filter((s) => (s.status === "unknown" && !isPicked(s)) || s.picked === "none").length}</td><td class="num">${list.filter((s) => s.status === "error").length}</td><td class="num">${avg == null ? "–" : usd(avg)}</td></tr>`;
     }).join("") || `<tr><td colspan="10" class="muted">No scans yet.</td></tr>`;
+
+    // Suggestions, by kind. Right rate counts only right and wrong answers.
+    const KINDS = [["exact", "Google: same picture"], ["similar", "Google: look-alike"], ["guess", "Google: best guess"], ["claude", "Claude's suggestion"], ["lens-old", "Google (before labels)"]];
+    const kindOf = (s) => s.pickedMatch || (s.pickedFrom === "lens" ? "lens-old" : s.pickedFrom === "claude" ? "claude" : null);
+    const picks = scans.filter(isPicked);
+    const rows = KINDS.map(([k, label]) => {
+      const list = picks.filter((s) => kindOf(s) === k);
+      const right = list.filter((s) => s.verdict === "right").length, wrong = list.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
+      return { k, label, n: list.length, right, wrong, unsure: list.filter((s) => s.verdict === "unsure").length, none: list.filter((s) => !s.verdict).length, rate: right + wrong ? right / (right + wrong) : null };
+    }).filter((r) => r.n || r.k !== "lens-old");
+    $("#sugg").innerHTML = rows.map((r) => `<tr><td>${r.label}</td><td class="num">${r.n}</td><td class="num">${r.right}</td><td class="num ${r.wrong ? "bad" : ""}">${r.wrong}</td><td class="num">${r.unsure}</td><td class="num">${r.none}</td><td class="num">${r.rate == null ? "–" : Math.round(r.rate * 100) + "%"}</td></tr>`).join("");
+    const noneOfThese = scans.filter((s) => s.picked === "none").length;
+    const sim = rows.find((r) => r.k === "similar"), simAnswered = sim.right + sim.wrong;
+    $("#sugg-note").textContent = `"None of these" chosen ${noneOfThese} time${noneOfThese === 1 ? "" : "s"}. `
+      + (simAnswered < 30 ? `Stop rule for look-alikes: decide after 30 answered picks (${simAnswered} so far). Remove them if fewer than half are right.`
+        : sim.rate < 0.5 ? `Stop rule reached: only ${Math.round(sim.rate * 100)}% of ${simAnswered} answered look-alike picks were right. Consider removing look-alikes.`
+        : `Stop rule checked: ${Math.round(sim.rate * 100)}% of ${simAnswered} answered look-alike picks were right, so keeping them is reasonable.`);
 
     thumbs.forEach(URL.revokeObjectURL); thumbs.length = 0;
     const V = { right: ["ok", "Right"], series_ok: ["ok", "Series right"], fair: ["ok", "Fair refusal"], wrong_work: ["stop", "Wrong work"], wrong: ["stop", "Wrong"], should_know: ["stop", "Missed"], unsure: ["", "Unsure"] };
