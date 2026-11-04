@@ -198,7 +198,13 @@ details.why ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-direc
 .cand .t { font-family: var(--display); font-weight: 600; font-size: 20px; line-height: 1.2; }
 .cand { flex-direction: row; gap: 14px; align-items: flex-start; }
 .cand .ctext { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.cand .cimg { width: 84px; height: 84px; object-fit: cover; flex: none; background: var(--panel); border-radius: var(--r); }
+.cand .cpic { display: flex; flex-direction: column; gap: 4px; width: 96px; flex: none; }
+.cand .cimg { width: 96px; height: 96px; object-fit: cover; background: var(--panel); border-radius: var(--r); display: block; }
+.cand .cimg.ph { animation: pulse 1.2s ease-in-out infinite alternate; }
+.cand .cimg.none { animation: none; }
+.cand .cap { font-size: 11px; color: var(--ink-2); line-height: 1.2; overflow-wrap: anywhere; }
+.cand .src.weak { color: var(--warn); }
+@keyframes pulse { from { opacity: .5 } to { opacity: 1 } }
 .cand .src { color: var(--accent); font-weight: 700; }
 
 /* refuse */
@@ -483,7 +489,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-04b · Art Ear, image search, assigned models</p>
+    <p class="note mono">Version 2026-11-04c · better suggestions with pictures</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -836,7 +842,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     required: ["status", "title", "artist", "title_en", "artist_en", "date", "medium", "held_by", "confidence", "evidence", "label_text", "series_name", "candidates", "commentary", "not_covered"],
     properties: { status: { type: "string", enum: ["identified", "series", "unknown"] }, title: S("string"), artist: S("string"), title_en: S("string"), artist_en: S("string"), date: S("string"), medium: S("string"), held_by: S("string"),
       confidence: { type: "string", enum: ["low", "medium", "high"] }, evidence: { type: "array", items: { type: "string" } }, label_text: S("string"), series_name: S("string"),
-      candidates: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "held_by", "date", "tell"], properties: { title: { type: "string" }, held_by: S("string"), date: S("string"), tell: { type: "string" } } } },
+      candidates: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "title_en", "held_by", "date", "tell"], properties: { title: { type: "string" }, title_en: S("string"), held_by: S("string"), date: S("string"), tell: { type: "string" } } } },
       commentary: S("string"), not_covered: S("string") } };
   const NARR_SCHEMA = { type: "object", additionalProperties: false, required: ["title", "artist", "date", "medium", "held_by", "commentary", "not_covered"],
     properties: { title: { type: "string" }, artist: S("string"), date: S("string"), medium: S("string"), held_by: S("string"), commentary: { type: "string" }, not_covered: S("string") } };
@@ -854,7 +860,7 @@ Rules:
 - Set status "identified" only if you recognise this exact artwork. A wrong confident answer is the worst outcome. Refusing is fine.
 - If it is one of several near-identical versions (a series, replicas, studio copies) and you cannot tell which, set status "series" and list up to 3 candidates with what visibly tells each apart.
 - If you do not recognise it, set status "unknown". If you have a genuine idea of what it might be, list up to 3 closest possibilities in candidates, with what would confirm each in tell. Otherwise leave candidates empty.
-- title_en and artist_en: the same title and artist as usually written in English, or in the original Latin-script form. Null if title or artist is null.
+- title_en and artist_en: the same title and artist as usually written in English, or in the original Latin-script form. Null if title or artist is null. Give each candidate a title_en the same way.
 - If a wall label is readable, copy its text into label_text exactly and use it.
 - Leave any fact you are not sure of as null. Never fill gaps with guesses.
 - Commentary: ${LENGTH_WORDS[state.length]} words of spoken English about ${ANGLE[state.angle]}. Point to things visible in the photo. No dates, names or numbers you are unsure of. If you know little about the requested angle, say so in not_covered and talk about what is visible. Write commentary only when status is "identified" or "series" (for a series, talk about the series and omit specifics of any one version). Otherwise null.
@@ -959,34 +965,61 @@ ${langRule()}`;
     series: ["Which one are you looking at?", "There are several close versions of this work, and the photo alone can't tell them apart. Pick the one in front of you, or check the wall label."],
     disagree: ["Which is it?", "The two checks suggest different works. Pick the one in front of you, or check the wall label."],
     unknown: ["Could it be one of these?", "The app isn't sure what this is. These are the closest matches it found. Pick one, or choose None of these."],
+    weak: ["Is it one of these?", "The app couldn't find this exact picture online. These only look similar, so pick one only if it is the same work."],
+  };
+  const SOURCE = {
+    exact: (c) => `Same picture found on ${c.host || "the web"}`,
+    similar: (c) => `Similar picture on ${c.host || "the web"}`,
+    guess: () => "Google's best guess",
+    claude: () => "Claude's suggestion",
   };
   function openPicker(r, reason) {
     $("#pick-img").src = photo.url;
-    $("#pick-h").textContent = PICK_TEXT[reason][0];
-    $("#pick-why").textContent = PICK_TEXT[reason][1];
-    $("#pick-eyebrow").textContent = reason === "series" ? [r.artist, r.series_name].filter(Boolean).join(" · ") : "";
     const L = current.lens || {};
-    const fromClaude = (r.candidates || []).map((c) => ({ ...c, artist: c.artist || r.artist, src: "claude" }));
-    const fromLens = ((L.ok && L.candidates) || []).map((c) => ({ ...c, src: "lens" }));
-    let list = reason === "disagree" ? [{ title: r.title, artist: r.artist, held_by: r.held_by, date: r.date, src: "claude", tell: "What Claude recognised" }, ...fromLens]
-      : reason === "series" ? [...fromClaude, ...fromLens] : [...fromLens, ...fromClaude];
+    const fromClaude = (r.candidates || []).map((c) => ({ ...c, artist: c.artist || r.artist, artist_en: r.artist_en, src: "claude", match: "claude" }));
+    const fromLens = ((L.ok && L.candidates) || []).map((c) => ({ ...c, src: "lens", match: c.match || "exact" }));
+    const strongLens = fromLens.filter((c) => c.match === "exact"), weakLens = fromLens.filter((c) => c.match !== "exact");
+    let list = reason === "disagree" ? [{ title: r.title, title_en: r.title_en, artist: r.artist, artist_en: r.artist_en, held_by: r.held_by, date: r.date, src: "claude", match: "claude", tell: "What Claude recognised" }, ...strongLens, ...weakLens]
+      : reason === "series" ? [...fromClaude, ...strongLens, ...weakLens] : [...strongLens, ...fromClaude, ...weakLens];
     const seen = new Set();
-    list = list.filter((c) => { const k = words(c.title).join(" "); if (!k || seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4);
+    list = list.filter((c) => { const k = words(c.title_en || c.title).join(" "); if (!k || seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4);
+    const textKey = reason === "unknown" && !strongLens.length && !fromClaude.length ? "weak" : reason;
+    $("#pick-h").textContent = PICK_TEXT[textKey][0];
+    $("#pick-why").textContent = PICK_TEXT[textKey][1];
+    $("#pick-eyebrow").textContent = reason === "series" ? [r.artist, r.series_name].filter(Boolean).join(" · ") : "";
     const c = $("#cands"); c.innerHTML = "";
+    const needPics = [];
     list.forEach((cand) => {
-      const source = cand.src === "lens" ? `Found on ${cand.host || "the web"}` : "Suggested by Claude";
-      const b = el("button", "cand" + (cand.image ? " has-img" : ""), `${cand.image ? `<img class="cimg" src="${esc(cand.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<span class="ctext"><span class="t" dir="auto">${esc(cand.title)}</span><span class="small muted" dir="auto">${esc([cand.artist, cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small src">${esc(source)}</span>${cand.tell ? `<span class="small tell">${esc(cand.tell)}</span>` : ""}</span>`);
-      const im = b.querySelector(".cimg"); if (im) im.onerror = () => { im.remove(); b.classList.remove("has-img"); };
+      const source = SOURCE[cand.match](cand);
+      const b = el("button", "cand has-img", `<span class="cpic"><span class="cimg ph" aria-hidden="true"></span><span class="cap"></span></span><span class="ctext"><span class="t" dir="auto">${esc(cand.title)}</span><span class="small muted" dir="auto">${esc([cand.artist, cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small src ${cand.match === "similar" ? "weak" : ""}">${esc(source)}</span>${cand.tell ? `<span class="small tell">${esc(cand.tell)}</span>` : ""}</span>`);
+      const setPic = (url, from) => {
+        const box = b.querySelector(".cpic");
+        if (!url) { box.querySelector(".cimg").classList.add("none"); box.querySelector(".cap").textContent = "No picture"; return; }
+        const im = new Image(); im.className = "cimg"; im.alt = ""; im.referrerPolicy = "no-referrer";
+        im.onload = () => { box.querySelector(".cimg").replaceWith(im); box.querySelector(".cap").textContent = from ? "Picture: " + from : ""; };
+        im.onerror = () => setPic(null);
+        im.src = url;
+      };
+      if (cand.image) setPic(cand.image, cand.imageSource || cand.host);
+      else needPics.push({ cand, setPic });
       b.onclick = async () => {
         b.disabled = true; const st = b.querySelector(".src"); st.textContent = "Writing commentary…";
         try {
           const n = await narrateFor(cand, r);
-          await updateScan({ picked: cand.title, pickedFrom: cand.src, pickedReason: reason, usage: usageRow() });
+          await updateScan({ picked: cand.title, pickedFrom: cand.src, pickedMatch: cand.match, pickedReason: reason, usage: usageRow() });
           openPlayer({ ...r, ...n, check: "picked", lang: state.lang }, "confirmed");
         } catch (e) { toast(errText(e)); b.disabled = false; st.textContent = source; }
       };
       c.appendChild(b);
     });
+    // Reference pictures for suggestions that came without one.
+    if (needPics.length) {
+      if (mode() === "invite") {
+        api("/api/thumbs", { method: "POST", body: JSON.stringify({ items: needPics.map(({ cand }) => ({ title: cand.title_en || cand.title, artist: cand.artist_en || cand.artist })) }) })
+          .then((res) => needPics.forEach(({ setPic }, i) => setPic(res.items?.[i]?.image || null, "Wikipedia")))
+          .catch(() => needPics.forEach(({ setPic }) => setPic(null)));
+      } else needPics.forEach(({ setPic }) => setPic(null));
+    }
     const g = $("#pick-general");
     if (reason === "series") { g.textContent = "Not sure, tell me about the series"; g.onclick = () => { updateScan({ picked: "series", pickedReason: reason }); openPlayer(r, "series"); }; }
     else { g.textContent = "None of these"; g.onclick = () => { updateScan({ picked: "none", pickedReason: reason }); openRefuse(r); }; }

@@ -52,6 +52,7 @@ async function route(req, env) {
   if (p === "/api/me" && m === "GET") return json({ name: invite.name, dailyLimit: invite.daily_limit, usedToday: await callsToday(env, invite.code), lens: !!env.GOOGLE_VISION_API_KEY });
   if (p === "/api/messages" && m === "POST") return messages(req, env, invite);
   if (p === "/api/lens" && m === "POST") return json(await lens(req, env, invite));
+  if (p === "/api/thumbs" && m === "POST") return json(await thumbs(env, await body(req)));
   if (p === "/api/scans" && m === "GET") {
     const rows = await env.DB.prepare("SELECT id, data, photo IS NOT NULL AS has_photo FROM scans WHERE code = ? ORDER BY created_at DESC").bind(invite.code).all();
     return json(rows.results.map((r) => ({ ...JSON.parse(r.data), id: r.id, hasPhoto: !!r.has_photo })));
@@ -160,7 +161,11 @@ Web entities: ${v.entities.map((e) => e.name).join("; ") || "none"}
 Pages showing the same image:
 ${listing || "none"}
 
-List up to 3 specific artworks these results point to, most likely first. Use only what the results say: do not add facts. Prefer works named on museum, collection or encyclopedia pages, and pages with exact matches. Skip results that are shops, posters or generic topics. If the results don't name a specific artwork, return an empty list.
+List up to 3 specific artworks these results point to, most likely first. Use only what the results say: do not add facts.
+- Pages with exact matches show the same picture; pages with only partial matches may show a different but similar-looking work. Rank works named on exact-match pages first.
+- Prefer works named on museum, collection or encyclopedia pages. Skip shops, posters and generic topics.
+- For each work give the page number it came from, or null if it came only from the best guess or web entities.
+- If the results don't name a specific artwork, return an empty list.
 Reply with JSON only.`;
   const schema = { type: "object", additionalProperties: false, required: ["candidates"], properties: { candidates: { type: "array", items: {
     type: "object", additionalProperties: false, required: ["title", "artist", "page", "evidence"],
@@ -175,11 +180,44 @@ Reply with JSON only.`;
   if (!r.ok || !j) return [];
   try {
     const parsed = JSON.parse((j.content || []).filter((c) => c.type === "text").map((c) => c.text).join(""));
-    return (parsed.candidates || []).slice(0, 3).map((c) => {
+    const out = (parsed.candidates || []).slice(0, 3).map((c) => {
       const pg = Number.isInteger(c.page) ? v.pages[c.page] : null;
-      return { title: c.title, artist: c.artist || null, evidence: c.evidence, url: pg?.url || null, host: pg?.host || null, image: pg?.image || v.similar[0] || null };
+      // exact: this page shows the same picture. similar: only a look-alike. guess: named by Google with no page.
+      const match = pg ? (pg.full > 0 ? "exact" : "similar") : "guess";
+      return { title: c.title, artist: c.artist || null, evidence: c.evidence, url: pg?.url || null, host: pg?.host || null, match, image: pg?.full > 0 ? pg.image : null, imageSource: pg?.full > 0 ? pg.host : null };
     });
+    const order = { exact: 0, guess: 1, similar: 2 };
+    out.sort((a, b) => order[a.match] - order[b.match]);
+    // Pages often carry no usable picture; look one up on Wikipedia so people can compare.
+    const pics = await thumbs(env, { items: out.filter((c) => !c.image).map((c) => ({ title: c.title, artist: c.artist })) });
+    let k = 0;
+    for (const c of out) if (!c.image) { const t = pics.items[k++]; if (t?.image) { c.image = t.image; c.imageSource = "Wikipedia"; } }
+    return out;
   } catch (e) { return []; }
+}
+
+// ---------- reference pictures from Wikipedia ----------
+// Returns a thumbnail only when the article title clearly matches the work, so we don't show the wrong picture.
+async function thumbs(env, b) {
+  const items = Array.isArray(b.items) ? b.items.slice(0, 6) : [];
+  const results = await Promise.all(items.map((it) => wikiThumb(env, String(it.title || "").slice(0, 150), String(it.artist || "").slice(0, 100)).catch(() => null)));
+  return { items: results.map((r) => r || { image: null }) };
+}
+const words = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !["the", "a", "an", "of", "and", "in", "on", "de", "la", "le"].includes(w));
+async function wikiThumb(env, title, artist) {
+  if (!words(title).length) return null;
+  const q = new URLSearchParams({ action: "query", format: "json", generator: "search", gsrsearch: `${title} ${artist} painting`.trim(), gsrlimit: "3",
+    prop: "pageimages", piprop: "thumbnail", pithumbsize: "320", gsrnamespace: "0" });
+  const r = await fetch(`${env.WIKI_URL || "https://en.wikipedia.org/w/api.php"}?${q}`, { headers: { "user-agent": "ArtEar/0.1 (museum audio guide test)" } });
+  if (!r.ok) return null;
+  const pages = Object.values((await r.json()).query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  const want = words(title);
+  for (const pg of pages) {
+    const have = new Set(words(pg.title));
+    const hit = want.filter((w) => have.has(w)).length / want.length;
+    if (hit >= 0.6 && pg.thumbnail?.source) return { image: pg.thumbnail.source, page: pg.title };
+  }
+  return null;
 }
 
 function priceOf(j, requested) {
