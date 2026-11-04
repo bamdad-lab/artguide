@@ -155,7 +155,7 @@ select.field { appearance: none; padding-right: 44px; background-image: linear-g
 .ident-photo img { object-fit: contain; background: var(--panel); }
 
 /* result */
-.art-hero { display: grid; grid-template-columns: 104px 1fr; gap: 16px; align-items: start; }
+.art-hero { display: grid; grid-template-columns: minmax(120px, 44%) 1fr; gap: 16px; align-items: start; }
 .art-hero .thumb { aspect-ratio: 4/5; }
 .art-title { font-family: var(--display); font-weight: 500; font-size: 27px; line-height: 1.12; letter-spacing: -.015em; text-wrap: balance; overflow-wrap: anywhere; }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 0 16px; font-size: 16px; margin: 0; border-top: 1px solid var(--rule); }
@@ -372,7 +372,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     </div>
     <ul class="tips">
       <li>Stand straight on to avoid glare on glass.</li>
-      <li>Include the wall label if it's next to the work. It helps.</li>
+      <li>Only what's inside the corners is used. Fit the artwork, and its label if it's close by, inside them.</li>
     </ul>
   </section>
 
@@ -443,6 +443,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     <h2>I can't identify this work reliably, so I won't guess.</h2>
     <div class="thumb ident-photo"><img id="refuse-img" alt="Your photo"></div>
     <p class="muted">Try again from straight on, without glare, or photograph the wall label: it is the museum's own record.</p>
+    <p class="caveat" id="refuse-lens" hidden>The web image search didn't respond this time, so there were no suggestions. Retaking the photo usually works.</p>
     <div class="verdict" id="refuse-verdict"></div>
     <button class="btn block" data-goto="scan">Retake, or photograph the wall label</button>
   </section>
@@ -490,7 +491,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-04d · plays at once, more pictures</p>
+    <p class="note mono">Version 2026-11-04e · cropped photos, lighter image search</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -749,17 +750,27 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopCamera(); else if (!$("#s-scan").hidden) startCamera(true); });
 
   const MAX = 1568;
-  function toJpeg(src, w, h) {
-    const k = Math.min(1, MAX / Math.max(w, h));
-    const c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
-    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+  function toJpeg(src, w, h, crop) {
+    const r = crop || { sx: 0, sy: 0, sw: w, sh: h };
+    const k = Math.min(1, MAX / Math.max(r.sw, r.sh));
+    const c = document.createElement("canvas"); c.width = Math.round(r.sw * k); c.height = Math.round(r.sh * k);
+    c.getContext("2d").drawImage(src, r.sx, r.sy, r.sw, r.sh, 0, 0, c.width, c.height);
     return new Promise((res) => c.toBlob(res, "image/jpeg", 0.85));
   }
   $("#shutter").onclick = async () => {
     unlockSpeech(); const v = $("#video"); if (!v.videoWidth) return;
     $("#capture").classList.add("flash"); setTimeout(() => $("#capture").classList.remove("flash"), 200);
-    setPhoto(await toJpeg(v, v.videoWidth, v.videoHeight));
+    setPhoto(await toJpeg(v, v.videoWidth, v.videoHeight, guideCrop(v)));
   };
+  // The viewfinder shows the video scaled to cover the box; keep only what's inside the corner guides.
+  function guideCrop(v) {
+    const vw = v.videoWidth, vh = v.videoHeight, cw = v.clientWidth, ch = v.clientHeight;
+    if (!cw || !ch) return null;
+    const scale = Math.max(cw / vw, ch / vh), ox = (vw * scale - cw) / 2, oy = (vh * scale - ch) / 2;
+    const inset = 0.05; // the guides sit at 8%; keep a small margin around them
+    const sx = (cw * inset + ox) / scale, sy = (ch * inset + oy) / scale;
+    return { sx, sy, sw: Math.min(vw - sx, (cw * (1 - 2 * inset)) / scale), sh: Math.min(vh - sy, (ch * (1 - 2 * inset)) / scale) };
+  }
   $("#lib").addEventListener("change", async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return; unlockSpeech();
     try {
@@ -1054,6 +1065,8 @@ ${langRule()}`;
   // ---------- refuse ----------
   function openRefuse(r) {
     $("#refuse-img").src = photo.url;
+    const L = current && current.lens;
+    $("#refuse-lens").hidden = !(L && L.available && !L.ok);
     renderVerdict("#refuse-verdict", "unknown");
     show("refuse");
   }

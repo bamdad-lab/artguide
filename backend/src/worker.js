@@ -148,7 +148,7 @@ async function lens(req, env, invite) {
     similar: (web.visuallySimilarImages || []).slice(0, 6).map((i) => i.url),
     candidates: [],
   };
-  if (pages.length || out.entities.length) out.candidates = await lensCandidates(env, invite, out);
+  if (pages.length || out.entities.length) out.candidates = await lensCandidates(env, invite, out).catch(() => []);
   return out;
 }
 
@@ -188,11 +188,7 @@ Reply with JSON only.`;
     });
     const order = { exact: 0, guess: 1, similar: 2 };
     out.sort((a, b) => order[a.match] - order[b.match]);
-    // Pages often carry no usable picture; look one up on Wikipedia so people can compare.
-    const pics = await thumbs(env, { items: out.filter((c) => !c.image).map((c) => ({ title: c.title, artist: c.artist, url: c.match === "exact" ? c.url : null })) });
-    let k = 0;
-    for (const c of out) if (!c.image) { const t = pics.items[k++]; if (t?.image) { c.image = t.image; c.imageSource = t.from || "Wikipedia"; } }
-    return out;
+    return out; // pictures for suggestions without one are looked up by a separate /api/thumbs request
   } catch (e) { return []; }
 }
 
@@ -200,7 +196,7 @@ Reply with JSON only.`;
 // Returns a thumbnail only when the article title clearly matches the work, so we don't show the wrong picture.
 // Tries, in order: the page's own share picture, a matching Wikipedia article, a matching Wikimedia Commons file.
 async function thumbs(env, b) {
-  const items = Array.isArray(b.items) ? b.items.slice(0, 6) : [];
+  const items = Array.isArray(b.items) ? b.items.slice(0, 4) : [];
   const results = await Promise.all(items.map(async (it) => {
     const title = String(it.title || "").slice(0, 150), artist = String(it.artist || "").slice(0, 100);
     const skip = new Set(Array.isArray(it.skip) ? it.skip : []); // pictures that already failed to load on the phone
@@ -220,7 +216,17 @@ async function pageImage(env, url) {
   try {
     const r = await fetch(url, { signal: ctl.signal, headers: { "user-agent": "Mozilla/5.0 (compatible; ArtEar/0.1; museum audio guide test)", accept: "text/html" }, redirect: "follow" });
     if (!r.ok || !(r.headers.get("content-type") || "").includes("html")) return null;
-    const html = (await r.text()).slice(0, 300000);
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let html = "";
+    while (html.length < 80000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += dec.decode(value, { stream: true });
+      if (/<\/head>/i.test(html)) break;
+    }
+    reader.cancel().catch(() => {});
+    const end = html.search(/<\/head>/i);
+    if (end > 0) html = html.slice(0, end);
     const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*>/i);
     const c = m && m[0].match(/content=["']([^"']+)["']/i);
     if (!c) return null;
