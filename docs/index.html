@@ -475,7 +475,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-04f · simpler consent, clearer checks</p>
+    <p class="note mono">Version 2026-11-05a · home-screen app keeps invite</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -653,7 +653,8 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       if (!r.ok) { err.textContent = j.error?.type === "disabled" ? "This invite has been switched off. Ask the organiser." : "That code wasn't recognised. Check it and try again."; return; }
       ls("ge-invite", code); ls("ge-invite-name", j.name || ""); setKey("");
       err.hidden = true; $("#invite").value = "";
-      history.replaceState(null, "", location.pathname);
+      // Keep the code in the address so "Add to Home Screen" saves it: the installed app has its own storage.
+      if (new URLSearchParams(location.search).get("invite") !== code) { location.replace(location.pathname + "?invite=" + code); return; }
       show(ls("ge-consent") === code ? (state.venueSet ? "scan" : "venue") : "consent");
       syncSoon();
     } catch (e) { err.textContent = "Couldn't reach the server. Check your connection."; }
@@ -1429,7 +1430,7 @@ Rules:
   }
   $("#autoplay").onchange = (e) => { state.autoplay = e.target.checked; save(); };
   $("#savephoto").onchange = (e) => { state.savePhoto = e.target.checked; save(); };
-  $("#key-remove").onclick = () => { setKey(""); ls("ge-invite", null); ls("ge-invite-name", null); show("key"); };
+  $("#key-remove").onclick = () => { setKey(""); ls("ge-invite", null); ls("ge-invite-name", null); history.replaceState(null, "", location.pathname); show("key"); };
   if (synth) synth.onvoiceschanged = () => { if (!$("#s-settings").hidden) renderSettings(); };
 
   // ---------- install as an app ----------
@@ -1451,8 +1452,9 @@ Rules:
   }
 
   // ---------- boot ----------
-  const invited = new URLSearchParams(location.search).get("invite");
-  if (invited) { $("#invite").value = invited.toUpperCase(); show("key"); joinWith(invited); }
+  const invited = (new URLSearchParams(location.search).get("invite") || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (invited && invited !== inviteCode()) { $("#invite").value = invited; show("key"); joinWith(invited); }
+  else if (mode() === "invite" && !invited) location.replace(location.pathname + "?invite=" + inviteCode());
   else if (!mode()) show("key");
   else if (mode() === "invite" && ls("ge-consent") !== inviteCode()) show("consent");
   else show(state.venueSet ? "scan" : "venue");
