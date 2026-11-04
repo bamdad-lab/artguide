@@ -1,2 +1,2 @@
-// Address of the Gallery Ear backend. Filled in after the first deploy.
-window.GALLERY_EAR_API = "";
+// Address of the Gallery Ear backend.
+window.GALLERY_EAR_API = "https://gallery-ear.bam-ayati.workers.dev";
