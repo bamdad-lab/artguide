@@ -52,6 +52,21 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--panel); }
 .chip.ok { color: var(--ok); background: #e3f3e9; } .chip.stop { color: var(--stop); background: #fbe5e3; }
 .msg { background: var(--mint); padding: 12px 14px; }
+.scan { cursor: pointer; text-align: left; font: inherit; color: inherit; background: #fff; padding: 0; }
+.scan:hover { border-color: var(--ink); }
+dialog.detail { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 24px); border: 1px solid var(--ink); padding: 0; }
+dialog.detail::backdrop { background: rgba(0,0,0,.45); }
+.detail .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; }
+.detail .body { padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; }
+@media (max-width: 640px) { .detail .body { grid-template-columns: 1fr; } }
+.detail img.big { width: 100%; border: 1px solid var(--line); display: block; }
+.detail h3 { font-family: var(--display); font-weight: 600; font-size: 16px; margin: 14px 0 6px; }
+.detail h3:first-child { margin-top: 0; }
+.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+.detail dt { color: var(--ink-2); } .detail dd { margin: 0; overflow-wrap: anywhere; }
+.detail ul { margin: 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.detail a { color: var(--ink); text-decoration-color: var(--accent); }
+.verdict-box { background: var(--panel); padding: 10px 12px; font-size: 14px; }
 .msg.err { background: #fbe5e3; color: var(--stop); }
 </style>
 </head>
@@ -122,6 +137,8 @@ td.num, th.num { text-align: right; white-space: nowrap; }
   </div>
 </main>
 
+<dialog class="detail" id="detail"><div class="head"><b id="d-title"></b><button class="btn ghost small" id="d-close">Close</button></div><div class="body" id="d-body"></div></dialog>
+
 <script src="config.js"></script>
 <script>
 (() => {
@@ -133,7 +150,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
   const modelOptions = (cur) => [["", "Balanced"], ["claude-opus-5-5", "Opus 5.5"], ["claude-sonnet-5-5", "Sonnet 5.5"], ["claude-haiku-5-5", "Haiku 5.5"]]
     .map(([v, l]) => `<option value="${v}"${(cur || "") === v ? " selected" : ""}>${l}</option>`).join("");
   const isPicked = (s) => !!s.picked && !["series", "none"].includes(s.picked);
-  const CHECK = { agree: "Two checks agree", disagree: "Checks disagree", no_match: "Image search found nothing", suggested: "Suggestions shown" };
+  const CHECK = { agree: "Two checks agree", disagree: "Checks differ", unclear: "Google unsure", no_match: "Image search found nothing", suggested: "Suggestions shown", pending: "Check still running", off: "No image search" };
   const NAMES = { "claude-opus-5-5": "Opus 5.5", "claude-sonnet-5-5": "Sonnet 5.5", "claude-haiku-5-5": "Haiku 5.5" };
   let pw = ""; try { pw = sessionStorage.getItem("ge-admin") || ""; } catch (e) {}
   const thumbs = [];
@@ -206,17 +223,18 @@ td.num, th.num { text-align: right; white-space: nowrap; }
         : sim.rate < 0.5 ? `Stop rule reached: only ${Math.round(sim.rate * 100)}% of ${simAnswered} answered look-alike picks were right. Consider removing look-alikes.`
         : `Stop rule checked: ${Math.round(sim.rate * 100)}% of ${simAnswered} answered look-alike picks were right, so keeping them is reasonable.`);
 
+    lastScans = scans;
     thumbs.forEach(URL.revokeObjectURL); thumbs.length = 0;
     const V = { right: ["ok", "Right"], series_ok: ["ok", "Series right"], fair: ["ok", "Fair refusal"], wrong_work: ["stop", "Wrong work"], wrong: ["stop", "Wrong"], should_know: ["stop", "Missed"], unsure: ["", "Unsure"] };
     $("#scans").innerHTML = scans.slice(0, 60).map((s) => {
       const [cls, label] = s.status === "error" ? ["stop", "Failed"] : V[s.verdict] || ["", "No answer"];
       const where = s.setting === "home" ? "At home · " + (s.homeKind || "") : [s.museum, s.exhibition].filter(Boolean).join(" · ");
       const name = s.status === "unknown" ? "Not identified" : s.status === "error" ? "Failed scan" : s.title || s.seriesName || "Untitled";
-      return `<div class="scan"><div class="ph" data-photo="${s.hasPhoto ? esc(s.id) : ""}">${s.hasPhoto ? "Loading…" : "No photo"}</div>
+      return `<button class="scan" data-scan="${esc(s.id)}"><div class="ph" data-photo="${s.hasPhoto ? esc(s.id) : ""}">${s.hasPhoto ? "Loading…" : "No photo"}</div>
         <div class="b"><span class="t">${esc(name)}</span><span class="muted">${esc(s.artist || "")}</span>
         <span><span class="chip ${cls}">${label}</span> ${CHECK[s.check] ? `<span class="chip">${CHECK[s.check]}</span>` : ""} ${s.picked && !["series", "none"].includes(s.picked) ? `<span class="chip">Picked: ${esc(s.picked)}</span>` : ""} ${s.truth ? "Actually: " + esc(s.truth) : ""}</span>
         <span class="note">${esc(s.person || "")} · ${esc(where)}</span>
-        <span class="note">${new Date(s.at).toLocaleString()} · ${esc(NAMES[s.model] || s.model || "")}${s.usage ? " · " + usd(s.usage.usd) : ""}</span></div></div>`;
+        <span class="note">${new Date(s.at).toLocaleString()} · ${esc(NAMES[s.model] || s.model || "")}${s.usage ? " · " + usd(s.usage.usd) : ""}</span></div></button>`;
     }).join("") || `<p class="muted">No scans yet.</p>`;
     for (const ph of document.querySelectorAll("[data-photo]")) {
       const id = ph.dataset.photo; if (!id) continue;
@@ -224,7 +242,57 @@ td.num, th.num { text-align: right; white-space: nowrap; }
     }
   }
 
+  // ---------- one scan in detail ----------
+  let lastScans = [];
+  const photoUrls = {};
+  const MATCH = { exact: "same picture", similar: "look-alike", guess: "Google's best guess" };
+  const row = (k, v) => v == null || v === "" ? "" : `<dt>${k}</dt><dd>${v}</dd>`;
+  const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t || u)}</a>` : esc(t || "");
+  function openDetail(id) {
+    const s = lastScans.find((x) => x.id === id); if (!s) return;
+    const L = s.lens || {};
+    const name = s.status === "unknown" ? "Not identified" : s.title || s.seriesName || "Untitled";
+    $("#d-title").textContent = `${name}${s.artist ? " · " + s.artist : ""}`;
+    const where = s.setting === "home" ? "At home · " + (s.homeKind || "") : [s.museum, s.exhibition].filter(Boolean).join(" · ");
+    const googleBlock = !L.available ? "<p class='note'>Image search was off for this scan.</p>"
+      : L.ok === false ? `<p class='note'>Image search failed: ${esc(L.error || "no reason given")}</p>`
+      : `<dl>${row("Best guess", esc((L.bestGuess || []).join(", ") || "none"))}${row("Topics", esc((L.entities || []).join(", ")))}</dl>
+         <h3>Suggestions from Google</h3>${(L.candidates || []).length ? `<ul>${L.candidates.map((c) => `<li>${link(c.url, c.title)}${c.artist ? " · " + esc(c.artist) : ""} <span class="note">(${MATCH[c.match] || "older scan, type not recorded"}${c.host ? ", " + esc(c.host) : ""})</span>${c.evidence ? `<br><span class="note">${esc(c.evidence)}</span>` : ""}</li>`).join("")}</ul>` : "<p class='note'>None named a specific work.</p>"}
+         ${(L.pages || []).length ? `<h3>Pages showing the picture</h3><ul>${L.pages.map((pg) => `<li>${link(pg.url, pg.title || pg.host)} <span class="note">(${pg.full ? "same picture" : "partial match"}, ${esc(pg.host)})</span></li>`).join("")}</ul>`
+           : (L.hosts || []).length ? `<h3>Sites showing the picture</h3><p class="note">${esc(L.hosts.join(", "))}</p>` : ""}`;
+    const V = { right: "Right work", wrong_work: "Right artist, wrong work", wrong: "Completely wrong", unsure: "Can't tell", series_ok: "Series is right", should_know: "Known work, should have got it", fair: "Fair, it's obscure" };
+    $("#d-body").innerHTML = `
+      <div>
+        ${s.hasPhoto ? `<img class="big" id="d-photo" alt="">` : "<p class='note'>No photo saved.</p>"}
+        <h3>Tester's answer</h3>
+        <div class="verdict-box">${s.verdict ? esc(V[s.verdict] || s.verdict) : "Not answered"}${s.truth ? `<br>Actually: <b>${esc(s.truth)}</b>` : ""}</div>
+        <h3>Scan</h3>
+        <dl>${row("Person", esc(s.person))}${row("Where", esc(where))}${row("When", esc(new Date(s.at).toLocaleString()))}${row("Model", esc(NAMES[s.model] || s.model))}
+          ${row("Language", esc(s.language))}${row("Time", s.seconds != null ? s.seconds + " s" : "")}${row("Cost", s.usage ? usd(s.usage.usd) + (s.usage.servedBy?.length ? " · served by " + esc(s.usage.servedBy.join(", ")) : "") : "")}
+          ${row("Result", esc(CHECK[s.check] || s.check || ""))}${row("Picked", s.picked ? esc(s.picked === "none" ? "None of these" : s.picked === "series" ? "Series only" : s.picked) + (s.pickedMatch ? ` <span class="note">(${esc(MATCH[s.pickedMatch] || s.pickedMatch)})</span>` : "") : "")}</dl>
+      </div>
+      <div>
+        <h3>Claude</h3>
+        <dl>${row("Status", esc(s.status))}${row("Title", esc(s.title))}${row("Artist", esc(s.artist))}${row("In English", esc([s.titleEn, s.artistEn].filter(Boolean).join(" · ")))}
+          ${row("Date", esc(s.date))}${row("Held by", esc(s.heldBy))}${row("Series", esc(s.seriesName))}${row("Confidence", esc(s.confidence))}${row("Label read", esc(s.labelText))}
+          ${row("Suggested", esc((s.candidates || []).join("; ")))}</dl>
+        ${(s.evidence || []).length ? `<h3>Why Claude thought so</h3><ul>${s.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+        <h3>Google image search</h3>${googleBlock}
+        ${s.deep ? `<h3>Deeper analysis sources</h3><ul>${(s.deep.sources || []).map((u) => `<li>${link(u, u)}</li>`).join("")}</ul>` : ""}
+      </div>`;
+    if (s.hasPhoto) {
+      const show = (u) => { const im = $("#d-photo"); if (im) im.src = u; };
+      if (photoUrls[id]) show(photoUrls[id]);
+      else call("/api/admin/photos/" + encodeURIComponent(id)).then((b) => { photoUrls[id] = URL.createObjectURL(b); show(photoUrls[id]); }).catch(() => {});
+    }
+    $("#detail").showModal();
+  }
+  $("#d-close").onclick = () => $("#detail").close();
+  $("#detail").addEventListener("click", (e) => { if (e.target.id === "detail") $("#detail").close(); });
+
   document.addEventListener("click", async (e) => {
+    const sc = e.target.closest("[data-scan]");
+    if (sc) { openDetail(sc.dataset.scan); return; }
     const c = e.target.closest("[data-copy]");
     if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); c.textContent = "Copied"; } catch (x) { c.textContent = "Select the link to copy"; } setTimeout(() => (c.textContent = "Copy link"), 2000); return; }
     const t = e.target.closest("[data-toggle]");

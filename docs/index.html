@@ -295,24 +295,9 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
   <section class="screen" id="s-consent" hidden>
     <div class="top"><span class="brand">Art <i>Ear</i></span></div>
     <h1 id="consent-hello">Before you start</h1>
-    <p>This is a test of an audio guide. Your scans help measure how often it gets artworks right.</p>
-    <div class="group">
-      <span class="lbl">What is shared with the organiser</span>
-      <ul class="reasons" style="color:var(--ink)">
-        <li>The photos you scan, unless you turn that off in Settings</li>
-        <li>The museum or setting you type in</li>
-        <li>What the app said, and your "Was this right?" answers</li>
-        <li>Which AI model answered and what it cost</li>
-      </ul>
-    </div>
-    <div class="group">
-      <span class="lbl">What is not collected</span>
-      <ul class="reasons" style="color:var(--ink)">
-        <li>Your location, contacts, or anything outside this app</li>
-        <li>Your name, beyond the one on your invite</li>
-      </ul>
-    </div>
-    <p class="muted">Photos are sent to Anthropic's Claude to identify the artwork. You can delete any scan in Your scans. Avoid photographing people.</p>
+    <p>Art Ear is a test. Point your camera at an artwork and listen. Your scans help us see how often it gets them right.</p>
+    <p><b>What we keep:</b> your photos, the place you type in, and your "Was this right?" answers. Nothing else from your phone.</p>
+    <p class="muted">Photos are sent to AI services (Anthropic's Claude and Google) to recognise the artwork. You can delete any scan in Your scans. Please avoid photographing people.</p>
     <button class="btn block" id="consent-ok">I agree, start</button>
     <button class="btn ghost block" id="consent-no">Not now</button>
   </section>
@@ -396,7 +381,6 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       </div>
     </div>
     <dl class="facts" id="p-facts"></dl>
-    <p class="caveat">These details come from Claude's own knowledge, not a museum record. Check them against the label. The finished app copies them from the museum's catalogue instead.</p>
     <div class="player">
       <div class="bar"><b id="p-bar"></b></div>
       <div class="times"><span id="p-cur">0:00</span><span id="p-dur">0:00</span></div>
@@ -491,7 +475,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-04e · cropped photos, lighter image search</p>
+    <p class="note mono">Version 2026-11-04f · simpler consent, clearer checks</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -916,10 +900,14 @@ ${langRule()}`;
     if (r.status !== "identified") return L.candidates.length ? "suggested" : "no_match";
     const text = [...L.candidates.map((c) => c.title + " " + (c.artist || "")), ...L.bestGuess, ...L.entities.map((e) => e.name), ...L.pages.map((pg) => pg.title)].join(" | ");
     if (sameWork(r.title_en || r.title, r.artist_en || r.artist, text)) return "agree";
-    return L.candidates.length ? "disagree" : "no_match";
+    if (L.candidates.some((c) => c.match === "exact")) return "disagree"; // same picture, different name
+    return L.candidates.length ? "unclear" : "no_match"; // only look-alikes or guesses: Google isn't sure
   }
   const lensSummary = (L) => !L || !L.available ? { available: false } : !L.ok ? { available: true, ok: false, error: L.error || null }
-    : { available: true, ok: true, bestGuess: L.bestGuess, candidates: L.candidates.map((c) => ({ title: c.title, artist: c.artist, host: c.host })), hosts: [...new Set(L.pages.map((pg) => pg.host))].slice(0, 8) };
+    : { available: true, ok: true, bestGuess: L.bestGuess, entities: (L.entities || []).slice(0, 5).map((e) => e.name),
+        candidates: L.candidates.map((c) => ({ title: c.title, artist: c.artist, host: c.host, url: c.url, match: c.match, evidence: c.evidence })),
+        pages: L.pages.slice(0, 8).map((pg) => ({ title: pg.title, host: pg.host, url: pg.url, full: pg.full, partial: pg.partial })),
+        hosts: [...new Set(L.pages.map((pg) => pg.host))].slice(0, 8) };
 
   async function identify() {
     $("#ident-img").src = photo.url; $("#ident-retry").hidden = true;
