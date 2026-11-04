@@ -1,4 +1,4 @@
-// Gallery Ear test backend.
+// Art Ear test backend.
 // Holds the Anthropic key, checks invite codes, caps spending, and stores everyone's scans.
 
 const MODELS = {
@@ -12,6 +12,8 @@ const SEARCH_TOOLS = new Set(["web_search_20260209", "web_search_20250305"]);
 const SEARCH_PRICE = 0.01;
 const MAX_TOKENS = 16000;
 const MAX_PHOTO_BYTES = 1_500_000;
+const VISION_PRICE = 0.0035; // Cloud Vision web detection, per image after the monthly free tier
+const LENS_MODEL = "claude-haiku-5-5"; // turns raw image-search results into clean suggestions
 
 export default {
   async fetch(req, env) {
@@ -47,8 +49,9 @@ async function route(req, env) {
   }
 
   const invite = await requireInvite(req, env);
-  if (p === "/api/me" && m === "GET") return json({ name: invite.name, dailyLimit: invite.daily_limit, usedToday: await callsToday(env, invite.code) });
+  if (p === "/api/me" && m === "GET") return json({ name: invite.name, dailyLimit: invite.daily_limit, usedToday: await callsToday(env, invite.code), lens: !!env.GOOGLE_VISION_API_KEY });
   if (p === "/api/messages" && m === "POST") return messages(req, env, invite);
+  if (p === "/api/lens" && m === "POST") return json(await lens(req, env, invite));
   if (p === "/api/scans" && m === "GET") {
     const rows = await env.DB.prepare("SELECT id, data, photo IS NOT NULL AS has_photo FROM scans WHERE code = ? ORDER BY created_at DESC").bind(invite.code).all();
     return json(rows.results.map((r) => ({ ...JSON.parse(r.data), id: r.id, hasPhoto: !!r.has_photo })));
@@ -73,8 +76,9 @@ async function messages(req, env, invite) {
   if (spent >= Number(env.DAILY_USD_CAP || 5)) throw err(429, "budget", "The test has reached today's spending cap. Try again tomorrow.");
 
   const b = await body(req);
+  // The server decides the model, so testers can't choose and every call in one scan matches.
+  b.model = await modelForScan(env, invite, req.headers.get("x-scan-id"));
   const model = MODELS[b.model];
-  if (!model) throw err(400, "invalid_request", "Model not allowed");
   if (!Array.isArray(b.messages) || !b.messages.length || b.messages.length > 8) throw err(400, "invalid_request", "Bad messages");
   const tools = (b.tools || []).filter((t) => SEARCH_TOOLS.has(t.type)).map((t) => ({ type: t.type, name: "web_search", max_uses: Math.min(Number(t.max_uses) || 6, 6) }));
   const upstream = {
@@ -91,9 +95,91 @@ async function messages(req, env, invite) {
   const text = await r.text();
   let j = null; try { j = JSON.parse(text); } catch (e) {}
   const cost = r.ok && j ? priceOf(j, b.model) : { usd: 0, input: 0, output: 0, searches: 0 };
-  await env.DB.prepare("INSERT INTO calls (code, at, model, served, input_tokens, output_tokens, searches, usd, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(invite.code, Date.now(), b.model, j?.model || null, cost.input, cost.output, cost.searches, cost.usd, r.status).run();
-  return new Response(text, { status: r.status, headers: { "content-type": "application/json" } });
+  await logCall(env, invite.code, b.model, j?.model || null, cost.input, cost.output, cost.searches, cost.usd, r.status);
+  return new Response(text, { status: r.status, headers: { "content-type": "application/json", "x-art-ear-model": b.model } });
+}
+
+async function modelForScan(env, invite, scanId) {
+  if (!scanId || !/^[\w-]{8,64}$/.test(scanId)) throw err(400, "invalid_request", "Missing scan id");
+  const row = await env.DB.prepare("SELECT model, code FROM scan_models WHERE scan_id = ?").bind(scanId).first();
+  if (row) { if (row.code !== invite.code) throw err(403, "forbidden", "Not your scan"); return row.model; }
+  let chosen = MODELS[invite.model] ? invite.model : null;
+  if (!chosen) {
+    // Balanced: give this scan the model with the fewest scans so far across everyone; break ties at random.
+    const counts = Object.fromEntries(Object.keys(MODELS).map((k) => [k, 0]));
+    const rows = await env.DB.prepare("SELECT model, COUNT(*) AS n FROM scan_models GROUP BY model").all();
+    for (const r of rows.results) if (r.model in counts) counts[r.model] = r.n;
+    const least = Math.min(...Object.values(counts));
+    const pool = Object.keys(counts).filter((k) => counts[k] === least);
+    chosen = pool[crypto.getRandomValues(new Uint32Array(1))[0] % pool.length];
+  }
+  await env.DB.prepare("INSERT OR IGNORE INTO scan_models (scan_id, code, model, at) VALUES (?, ?, ?, ?)").bind(scanId, invite.code, chosen, Date.now()).run();
+  return (await env.DB.prepare("SELECT model FROM scan_models WHERE scan_id = ?").bind(scanId).first()).model;
+}
+
+// ---------- image search (Google Cloud Vision web detection) ----------
+async function lens(req, env, invite) {
+  if (!env.GOOGLE_VISION_API_KEY) return { available: false };
+  const used = await callsToday(env, invite.code);
+  if (used >= invite.daily_limit) throw err(429, "daily_limit", `Daily limit of ${invite.daily_limit} requests reached. It resets at midnight UTC.`);
+  const b = await body(req);
+  if (typeof b.photo !== "string" || !b.photo.startsWith("data:image/jpeg;base64,")) throw err(400, "invalid_request", "Missing photo");
+  if (b.photo.length > MAX_PHOTO_BYTES * 1.4) throw err(413, "too_large", "Photo too large");
+  const vr = await fetch(`${env.VISION_URL || "https://vision.googleapis.com/v1/images:annotate"}?key=${encodeURIComponent(env.GOOGLE_VISION_API_KEY)}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ requests: [{ image: { content: b.photo.slice(23) }, features: [{ type: "WEB_DETECTION", maxResults: 20 }] }] }),
+  });
+  const vj = await vr.json().catch(() => ({}));
+  await logCall(env, invite.code, "google-vision", null, 0, 0, 0, vr.ok ? VISION_PRICE : 0, vr.status);
+  if (!vr.ok || vj.responses?.[0]?.error) return { available: true, ok: false, error: vj.error?.message || vj.responses?.[0]?.error?.message || "Image search failed" };
+  const web = vj.responses?.[0]?.webDetection || {};
+  const clean = (t) => String(t || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  const pages = (web.pagesWithMatchingImages || []).slice(0, 15).map((pg) => {
+    let host = ""; try { host = new URL(pg.url).hostname.replace(/^www\./, ""); } catch (e) {}
+    const img = pg.fullMatchingImages?.[0]?.url || pg.partialMatchingImages?.[0]?.url || null;
+    return { url: pg.url, title: clean(pg.pageTitle), host, full: (pg.fullMatchingImages || []).length, partial: (pg.partialMatchingImages || []).length, image: img };
+  });
+  const out = {
+    available: true, ok: true,
+    bestGuess: (web.bestGuessLabels || []).map((l) => l.label).filter(Boolean),
+    entities: (web.webEntities || []).filter((e) => e.description).slice(0, 8).map((e) => ({ name: e.description, score: e.score })),
+    pages,
+    similar: (web.visuallySimilarImages || []).slice(0, 6).map((i) => i.url),
+    candidates: [],
+  };
+  if (pages.length || out.entities.length) out.candidates = await lensCandidates(env, invite, out);
+  return out;
+}
+
+// Ask a small, cheap model to turn page titles into up to three clean artwork names.
+async function lensCandidates(env, invite, v) {
+  const listing = v.pages.map((pg, i) => `${i}. [${pg.host}] ${pg.title} (exact matches: ${pg.full}, partial: ${pg.partial})`).join("\n");
+  const prompt = `These are results of a reverse image search on a visitor's photo of an artwork.
+Best guess: ${v.bestGuess.join("; ") || "none"}
+Web entities: ${v.entities.map((e) => e.name).join("; ") || "none"}
+Pages showing the same image:
+${listing || "none"}
+
+List up to 3 specific artworks these results point to, most likely first. Use only what the results say: do not add facts. Prefer works named on museum, collection or encyclopedia pages, and pages with exact matches. Skip results that are shops, posters or generic topics. If the results don't name a specific artwork, return an empty list.
+Reply with JSON only.`;
+  const schema = { type: "object", additionalProperties: false, required: ["candidates"], properties: { candidates: { type: "array", items: {
+    type: "object", additionalProperties: false, required: ["title", "artist", "page", "evidence"],
+    properties: { title: { type: "string" }, artist: { type: ["string", "null"] }, page: { type: ["integer", "null"] }, evidence: { type: "string" } } } } } };
+  const r = await fetch(env.ANTHROPIC_URL || "https://api.anthropic.com/v1/messages", {
+    method: "POST", headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: LENS_MODEL, max_tokens: 2000, messages: [{ role: "user", content: prompt }], output_config: { effort: "low", format: { type: "json_schema", schema } } }),
+  });
+  const j = await r.json().catch(() => null);
+  const cost = r.ok && j ? priceOf(j, LENS_MODEL) : { usd: 0, input: 0, output: 0, searches: 0 };
+  await logCall(env, invite.code, LENS_MODEL, j?.model || null, cost.input, cost.output, 0, cost.usd, r.status);
+  if (!r.ok || !j) return [];
+  try {
+    const parsed = JSON.parse((j.content || []).filter((c) => c.type === "text").map((c) => c.text).join(""));
+    return (parsed.candidates || []).slice(0, 3).map((c) => {
+      const pg = Number.isInteger(c.page) ? v.pages[c.page] : null;
+      return { title: c.title, artist: c.artist || null, evidence: c.evidence, url: pg?.url || null, host: pg?.host || null, image: pg?.image || v.similar[0] || null };
+    });
+  } catch (e) { return []; }
 }
 
 function priceOf(j, requested) {
@@ -143,29 +229,34 @@ async function photo(env, id, code) {
 async function adminInvites(env) {
   const day = startOfDay();
   const rows = await env.DB.prepare(`
-    SELECT i.code, i.name, i.daily_limit, i.active, i.created_at,
+    SELECT i.code, i.name, i.daily_limit, i.active, i.created_at, i.model,
       (SELECT COUNT(*) FROM scans s WHERE s.code = i.code) AS scans,
       (SELECT COALESCE(SUM(usd), 0) FROM calls c WHERE c.code = i.code) AS usd,
       (SELECT COUNT(*) FROM calls c WHERE c.code = i.code AND c.at >= ?) AS calls_today
     FROM invites i ORDER BY i.created_at DESC`).bind(day).all();
   const total = await env.DB.prepare("SELECT COALESCE(SUM(usd), 0) AS usd, COUNT(*) AS calls FROM calls").first();
-  return { invites: rows.results, totalUsd: total.usd, totalCalls: total.calls, spentToday: await spentToday(env), dailyCap: Number(env.DAILY_USD_CAP || 5) };
+  const lensUsd = (await env.DB.prepare("SELECT COALESCE(SUM(usd), 0) AS usd FROM calls WHERE model IN ('google-vision', ?)").bind(LENS_MODEL).first()).usd;
+  const assigned = (await env.DB.prepare("SELECT model, COUNT(*) AS n FROM scan_models GROUP BY model").all()).results;
+  return { invites: rows.results, totalUsd: total.usd, totalCalls: total.calls, spentToday: await spentToday(env), dailyCap: Number(env.DAILY_USD_CAP || 5),
+    lensEnabled: !!env.GOOGLE_VISION_API_KEY, lensUsd, assigned, models: Object.keys(MODELS) };
 }
 async function createInvite(env, b) {
   const name = String(b.name || "").trim().slice(0, 60);
   if (!name) throw err(400, "invalid_request", "Name required");
-  const limit = Math.max(1, Math.min(Number(b.dailyLimit) || 60, 500));
+  const limit = Math.max(1, Math.min(Number(b.dailyLimit) || 100, 500));
+  const model = MODELS[b.model] ? b.model : null;
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(10));
   const code = Array.from(bytes, (x) => alphabet[x % alphabet.length]).join("");
-  await env.DB.prepare("INSERT INTO invites (code, name, daily_limit, active, created_at) VALUES (?, ?, ?, 1, ?)").bind(code, name, limit, Date.now()).run();
-  return { code, name, dailyLimit: limit };
+  await env.DB.prepare("INSERT INTO invites (code, name, daily_limit, active, created_at, model) VALUES (?, ?, ?, 1, ?, ?)").bind(code, name, limit, Date.now(), model).run();
+  return { code, name, dailyLimit: limit, model };
 }
 async function updateInvite(env, code, b) {
   const sets = [], args = [];
   if (typeof b.active === "boolean") { sets.push("active = ?"); args.push(b.active ? 1 : 0); }
   if (b.dailyLimit != null) { sets.push("daily_limit = ?"); args.push(Math.max(1, Math.min(Number(b.dailyLimit) || 60, 500))); }
   if (typeof b.name === "string" && b.name.trim()) { sets.push("name = ?"); args.push(b.name.trim().slice(0, 60)); }
+  if (b.model !== undefined) { sets.push("model = ?"); args.push(MODELS[b.model] ? b.model : null); }
   if (!sets.length) throw err(400, "invalid_request", "Nothing to change");
   await env.DB.prepare(`UPDATE invites SET ${sets.join(", ")} WHERE code = ?`).bind(...args, code).run();
   return { updated: true };
@@ -180,10 +271,13 @@ async function adminScans(env, withPhotos) {
 }
 
 // ---------- helpers ----------
+const logCall = (env, code, model, served, input, output, searches, usd, status) =>
+  env.DB.prepare("INSERT INTO calls (code, at, model, served, input_tokens, output_tokens, searches, usd, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(code, Date.now(), model, served, input, output, searches, usd, status).run();
 async function requireInvite(req, env) {
   const code = bearer(req).toUpperCase();
   if (!/^[A-Z0-9]{6,20}$/.test(code)) throw err(401, "unauthorized", "Invite code missing or malformed");
-  const inv = await env.DB.prepare("SELECT code, name, daily_limit, active FROM invites WHERE code = ?").bind(code).first();
+  const inv = await env.DB.prepare("SELECT code, name, daily_limit, active, model FROM invites WHERE code = ?").bind(code).first();
   if (!inv) throw err(401, "unauthorized", "Unknown invite code");
   if (!inv.active) throw err(403, "disabled", "This invite has been switched off");
   return inv;
@@ -212,7 +306,8 @@ function corsHeaders(req, env) {
   return {
     "access-control-allow-origin": allowed.includes(origin) ? origin : allowed[0] || "",
     "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "access-control-allow-headers": "authorization, content-type",
+    "access-control-allow-headers": "authorization, content-type, x-scan-id",
+    "access-control-expose-headers": "x-art-ear-model",
     "access-control-max-age": "86400",
     "vary": "origin",
   };

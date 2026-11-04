@@ -1,6 +1,6 @@
 {
-  "name": "Gallery Ear",
-  "short_name": "Gallery Ear",
+  "name": "Art Ear",
+  "short_name": "Art Ear",
   "description": "Point your camera at an artwork and hear about it.",
   "start_url": "./",
   "scope": "./",

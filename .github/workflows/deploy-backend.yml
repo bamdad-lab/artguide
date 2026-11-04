@@ -67,9 +67,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          GOOGLE_VISION_API_KEY: ${{ secrets.GOOGLE_VISION_API_KEY }}
         run: |
           printf '%s' "$ANTHROPIC_API_KEY" | $WRANGLER secret put ANTHROPIC_API_KEY
           printf '%s' "$ADMIN_PASSWORD" | $WRANGLER secret put ADMIN_TOKEN
+          if [ -n "$GOOGLE_VISION_API_KEY" ]; then printf '%s' "$GOOGLE_VISION_API_KEY" | $WRANGLER secret put GOOGLE_VISION_API_KEY; else echo "No GOOGLE_VISION_API_KEY secret, image search stays off"; fi
 
       - name: Show the backend address
         if: steps.check.outputs.ready == 'true'

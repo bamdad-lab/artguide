@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Gallery Ear Admin</title>
+<title>Art Ear Admin</title>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>
@@ -22,6 +22,7 @@ section { border-top: 1px solid var(--ink); padding-top: 16px; display: flex; fl
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
 .row > * { min-width: 0; }
 label { font-family: var(--display); font-weight: 600; display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; }
+select { min-height: 48px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 0; font: inherit; width: 100%; background: #fff; }
 input { min-height: 48px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 0; font: inherit; width: 100%; }
 input:focus { border-color: var(--ink); outline: none; }
 button { font: inherit; cursor: pointer; }
@@ -56,7 +57,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 </head>
 <body>
 <main>
-  <div><h1>Gallery Ear admin</h1><p class="muted">Create invites, watch spending and download everyone's results.</p></div>
+  <div><h1>Art Ear admin</h1><p class="muted">Create invites, watch spending and download everyone's results.</p></div>
 
   <section id="login">
     <h2>Sign in</h2>
@@ -79,17 +80,18 @@ td.num, th.num { text-align: right; white-space: nowrap; }
       <h2>Invite someone</h2>
       <div class="row">
         <label>Name<input id="inv-name" placeholder="e.g. Aunt Mina"></label>
-        <label style="flex:0 1 160px">Requests per day<input id="inv-limit" type="number" min="1" max="500" value="60"></label>
+        <label style="flex:0 1 160px">Requests per day<input id="inv-limit" type="number" min="1" max="500" value="100"></label>
+        <label style="flex:0 1 200px">Model<select id="inv-model"><option value="">Balanced (recommended)</option><option value="claude-opus-5-5">Opus 5.5 only</option><option value="claude-sonnet-5-5">Sonnet 5.5 only</option><option value="claude-haiku-5-5">Haiku 5.5 only</option></select></label>
         <button class="btn" id="inv-go">Create invite</button>
       </div>
-      <p class="note">One scan uses 1 to 3 requests. Send the link; opening it signs them in.</p>
+      <p class="note">One scan uses 3 to 5 requests. Balanced gives each scan whichever model has had the fewest scans so far, so the three stay even. Testers never see which model answered. Send the link; opening it signs them in.</p>
       <p class="msg" id="inv-msg" hidden></p>
     </section>
 
     <section>
       <h2>Invites</h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Link</th><th class="num">Scans</th><th class="num">Today</th><th class="num">Spent</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Link</th><th>Model</th><th class="num">Scans</th><th class="num">Today</th><th class="num">Spent</th><th></th></tr></thead>
         <tbody id="invites"></tbody>
       </table></div>
     </section>
@@ -97,10 +99,10 @@ td.num, th.num { text-align: right; white-space: nowrap; }
     <section>
       <h2>Results by model</h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>Model</th><th class="num">Scans</th><th class="num">Named right</th><th class="num">Named wrong</th><th class="num">Series</th><th class="num">Refused</th><th class="num">Failed</th><th class="num">Avg cost</th></tr></thead>
+        <thead><tr><th>Model</th><th class="num">Scans</th><th class="num">Named right</th><th class="num">Named wrong</th><th class="num">Checks agreed</th><th class="num">Picked by user</th><th class="num">Series</th><th class="num">Refused</th><th class="num">Failed</th><th class="num">Avg cost</th></tr></thead>
         <tbody id="models"></tbody>
       </table></div>
-      <p class="note">Right and wrong count only named works someone answered. Named wrong is the number that matters.</p>
+      <p class="note">Right and wrong count only named works someone answered, including ones they picked from suggestions. Named wrong is the number that matters. Checks agreed means Claude and Google image search named the same work. The model column shows the model that identified the work; image search costs are counted separately above.</p>
     </section>
 
     <section>
@@ -119,6 +121,10 @@ td.num, th.num { text-align: right; white-space: nowrap; }
   const API = (window.GALLERY_EAR_API || "").replace(/\/+$/, "");
   const APP = new URL("./", location.href).href;
   const usd = (x) => "$" + (x < 1 ? x.toFixed(3) : x.toFixed(2));
+  const modelOptions = (cur) => [["", "Balanced"], ["claude-opus-5-5", "Opus 5.5"], ["claude-sonnet-5-5", "Sonnet 5.5"], ["claude-haiku-5-5", "Haiku 5.5"]]
+    .map(([v, l]) => `<option value="${v}"${(cur || "") === v ? " selected" : ""}>${l}</option>`).join("");
+  const isPicked = (s) => !!s.picked && !["series", "none"].includes(s.picked);
+  const CHECK = { agree: "Two checks agree", disagree: "Checks disagree", no_match: "Image search found nothing", suggested: "Suggestions shown" };
   const NAMES = { "claude-opus-5-5": "Opus 5.5", "claude-sonnet-5-5": "Sonnet 5.5", "claude-haiku-5-5": "Haiku 5.5" };
   let pw = ""; try { pw = sessionStorage.getItem("ge-admin") || ""; } catch (e) {}
   const thumbs = [];
@@ -149,28 +155,30 @@ td.num, th.num { text-align: right; white-space: nowrap; }
       [inv.invites.filter((i) => i.active).length, "active invites"],
       [scans.length, "scans"],
       [scans.filter((s) => s.verdict).length, "answered"],
+      [inv.lensEnabled ? usd(inv.lensUsd) : "Off", inv.lensEnabled ? "spent on image search" : "image search (add GOOGLE_VISION_API_KEY)"],
     ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
 
     $("#invites").innerHTML = inv.invites.map((i) => {
       const link = APP + "?invite=" + i.code;
       return `<tr><td class="${i.active ? "" : "off"}">${esc(i.name)}<br><span class="code note">${i.code}</span></td>
         <td><span class="link">${esc(link)}</span><br><button class="btn ghost small" data-copy="${esc(link)}">Copy link</button></td>
+        <td><select data-model="${i.code}" aria-label="Model for ${esc(i.name)}" style="min-height:36px;padding:4px 8px;font-size:13px">${modelOptions(i.model)}</select></td>
         <td class="num">${i.scans}</td><td class="num">${i.calls_today} / ${i.daily_limit}</td><td class="num">${usd(i.usd)}</td>
         <td><button class="btn ghost small" data-toggle="${i.code}" data-active="${i.active}">${i.active ? "Switch off" : "Switch on"}</button></td></tr>`;
-    }).join("") || `<tr><td colspan="6" class="muted">No invites yet. Create one above.</td></tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted">No invites yet. Create one above.</td></tr>`;
 
     const by = {};
     scans.forEach((s) => { (by[s.model] = by[s.model] || []).push(s); });
     $("#models").innerHTML = Object.entries(by).map(([id, list]) => {
-      const named = list.filter((s) => s.status === "identified" || (s.status === "series" && s.picked && s.picked !== "series"));
+      const named = list.filter((s) => isPicked(s) || (s.status === "identified" && !s.picked));
       const judged = named.filter((s) => s.verdict && s.verdict !== "unsure");
       const priced = list.filter((s) => s.usage);
       const avg = priced.length ? priced.reduce((a, s) => a + s.usage.usd, 0) / priced.length : null;
       const wrong = judged.filter((s) => s.verdict === "wrong" || s.verdict === "wrong_work").length;
       return `<tr><td>${esc(NAMES[id] || id)}</td><td class="num">${list.length}</td><td class="num">${judged.filter((s) => s.verdict === "right").length}</td>
-        <td class="num ${wrong ? "bad" : ""}">${wrong}</td><td class="num">${list.filter((s) => s.status === "series").length}</td>
-        <td class="num">${list.filter((s) => s.status === "unknown").length}</td><td class="num">${list.filter((s) => s.status === "error").length}</td><td class="num">${avg == null ? "–" : usd(avg)}</td></tr>`;
-    }).join("") || `<tr><td colspan="8" class="muted">No scans yet.</td></tr>`;
+        <td class="num ${wrong ? "bad" : ""}">${wrong}</td><td class="num">${list.filter((s) => s.check === "agree").length}</td><td class="num">${list.filter(isPicked).length}</td><td class="num">${list.filter((s) => s.status === "series" && !isPicked(s) && s.picked !== "none").length}</td>
+        <td class="num">${list.filter((s) => (s.status === "unknown" && !isPicked(s)) || s.picked === "none").length}</td><td class="num">${list.filter((s) => s.status === "error").length}</td><td class="num">${avg == null ? "–" : usd(avg)}</td></tr>`;
+    }).join("") || `<tr><td colspan="10" class="muted">No scans yet.</td></tr>`;
 
     thumbs.forEach(URL.revokeObjectURL); thumbs.length = 0;
     const V = { right: ["ok", "Right"], series_ok: ["ok", "Series right"], fair: ["ok", "Fair refusal"], wrong_work: ["stop", "Wrong work"], wrong: ["stop", "Wrong"], should_know: ["stop", "Missed"], unsure: ["", "Unsure"] };
@@ -180,7 +188,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
       const name = s.status === "unknown" ? "Not identified" : s.status === "error" ? "Failed scan" : s.title || s.seriesName || "Untitled";
       return `<div class="scan"><div class="ph" data-photo="${s.hasPhoto ? esc(s.id) : ""}">${s.hasPhoto ? "Loading…" : "No photo"}</div>
         <div class="b"><span class="t">${esc(name)}</span><span class="muted">${esc(s.artist || "")}</span>
-        <span><span class="chip ${cls}">${label}</span> ${s.truth ? "Actually: " + esc(s.truth) : ""}</span>
+        <span><span class="chip ${cls}">${label}</span> ${CHECK[s.check] ? `<span class="chip">${CHECK[s.check]}</span>` : ""} ${s.picked && !["series", "none"].includes(s.picked) ? `<span class="chip">Picked: ${esc(s.picked)}</span>` : ""} ${s.truth ? "Actually: " + esc(s.truth) : ""}</span>
         <span class="note">${esc(s.person || "")} · ${esc(where)}</span>
         <span class="note">${new Date(s.at).toLocaleString()} · ${esc(NAMES[s.model] || s.model || "")}${s.usage ? " · " + usd(s.usage.usd) : ""}</span></div></div>`;
     }).join("") || `<p class="muted">No scans yet.</p>`;
@@ -200,19 +208,25 @@ td.num, th.num { text-align: right; white-space: nowrap; }
     const name = $("#inv-name").value.trim(), msg = $("#inv-msg");
     if (!name) { msg.textContent = "Type a name first."; msg.className = "msg err"; msg.hidden = false; return; }
     try {
-      const r = await call("/api/admin/invites", { method: "POST", body: JSON.stringify({ name, dailyLimit: Number($("#inv-limit").value) || 60 }) });
+      const r = await call("/api/admin/invites", { method: "POST", body: JSON.stringify({ name, dailyLimit: Number($("#inv-limit").value) || 100, model: $("#inv-model").value || null }) });
       const link = APP + "?invite=" + r.code;
       msg.innerHTML = `Invite for <b>${esc(r.name)}</b>: <span class="code">${r.code}</span><br><span class="link">${esc(link)}</span><br><button class="btn ghost small" data-copy="${esc(link)}">Copy link</button>`;
       msg.className = "msg"; msg.hidden = false; $("#inv-name").value = ""; load();
     } catch (x) { msg.textContent = x.message; msg.className = "msg err"; msg.hidden = false; }
   };
+  document.addEventListener("change", async (e) => {
+    const m = e.target.closest("[data-model]"); if (!m) return;
+    m.disabled = true;
+    try { await call("/api/admin/invites/" + m.dataset.model, { method: "PATCH", body: JSON.stringify({ model: m.value || null }) }); } catch (x) { alert(x.message); }
+    m.disabled = false;
+  });
   $("#refresh").onclick = load;
   $("#export").onclick = async () => {
     const b = $("#export"); b.disabled = true; b.textContent = "Preparing…";
     try {
       const scans = await call("/api/admin/scans?photos=1");
       const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), scans }, null, 1)], { type: "application/json" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `gallery-ear-all-scans-${new Date().toISOString().slice(0, 10)}.json`;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `art-ear-all-scans-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (x) { alert(x.message); }
     finally { b.disabled = false; b.textContent = "Download all (JSON with photos)"; }
