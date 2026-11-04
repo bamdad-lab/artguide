@@ -422,6 +422,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     <details class="why" id="p-why"><summary>Why Claude thinks it's this work</summary><ul id="p-why-list"></ul></details>
     <p class="small links" id="p-links"></p>
     <p class="note mono owner-only" id="p-cost"></p>
+    <button class="btn ghost block" id="p-alt" hidden>Not this one? See other matches</button>
     <button class="btn block" data-goto="scan">Scan next work</button>
   </section>
 
@@ -489,7 +490,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
       <p class="small muted" id="key-line"></p>
       <button class="btn ghost" id="key-remove">Sign out of this phone</button>
     </div>
-    <p class="note mono">Version 2026-11-04c · better suggestions with pictures</p>
+    <p class="note mono">Version 2026-11-04d · plays at once, more pictures</p>
   </section>
 
   <nav class="nav" id="nav" hidden>
@@ -936,14 +937,27 @@ ${langRule()}`;
       current.result = r;
       const name = r.title ? `${r.title}${r.artist ? ", " + r.artist : ""}` : r.series_name || "Not recognised";
       mark(s[1], "done", r.status === "unknown" ? "Not recognised" : name);
+      if (r.status === "identified") {
+        // Don't wait for the image search: play now, and record what it found when it arrives.
+        r.check = "pending"; mark(s[3], "done");
+        await logScan(r);
+        const scan = current;
+        openPlayer(r, "identified");
+        lensP.then(async (L) => {
+          scan.lens = L; r.check = crossCheck(r, L);
+          const patch = { check: r.check, lens: lensSummary(L) };
+          if (current === scan) await updateScan(patch).catch(() => {});
+          else { const row = await getScan(scan.id); if (row) await putScan({ ...row, ...patch }); }
+          if (current === scan && !$("#s-player").hidden) updateCheckChip(r);
+        });
+        return;
+      }
       const L = await lensP;
       current.lens = L;
       r.check = crossCheck(r, L);
       await logScan(r);
       const suggestions = [...(r.candidates || []), ...((L.ok && L.candidates) || [])].length;
-      if (r.status === "identified" && r.check !== "disagree") { mark(s[3], "done"); return openPlayer(r, "identified"); }
       mark(s[3], "", "Waiting for your choice");
-      if (r.status === "identified") return openPicker(r, "disagree");
       if (r.status === "series") return openPicker(r, "series");
       return suggestions ? openPicker(r, "unknown") : openRefuse(r);
     } catch (e) {
@@ -965,6 +979,7 @@ ${langRule()}`;
     series: ["Which one are you looking at?", "There are several close versions of this work, and the photo alone can't tell them apart. Pick the one in front of you, or check the wall label."],
     disagree: ["Which is it?", "The two checks suggest different works. Pick the one in front of you, or check the wall label."],
     unknown: ["Could it be one of these?", "The app isn't sure what this is. These are the closest matches it found. Pick one, or choose None of these."],
+    notthis: ["Other possible matches", "Google's image search found the same picture under these names. Pick the one in front of you, or go back."],
     weak: ["Is it one of these?", "The app couldn't find this exact picture online. These only look similar, so pick one only if it is the same work."],
   };
   const SOURCE = {
@@ -979,7 +994,8 @@ ${langRule()}`;
     const fromClaude = (r.candidates || []).map((c) => ({ ...c, artist: c.artist || r.artist, artist_en: r.artist_en, src: "claude", match: "claude" }));
     const fromLens = ((L.ok && L.candidates) || []).map((c) => ({ ...c, src: "lens", match: c.match || "exact" }));
     const strongLens = fromLens.filter((c) => c.match === "exact"), weakLens = fromLens.filter((c) => c.match !== "exact");
-    let list = reason === "disagree" ? [{ title: r.title, title_en: r.title_en, artist: r.artist, artist_en: r.artist_en, held_by: r.held_by, date: r.date, src: "claude", match: "claude", tell: "What Claude recognised" }, ...strongLens, ...weakLens]
+    let list = reason === "notthis" ? [...strongLens.filter((c) => !sameWork(r.title_en || r.title, r.artist_en || r.artist, c.title + " " + (c.artist || ""))), ...weakLens]
+      : reason === "disagree" ? [{ title: r.title, title_en: r.title_en, artist: r.artist, artist_en: r.artist_en, held_by: r.held_by, date: r.date, src: "claude", match: "claude", tell: "What Claude recognised" }, ...strongLens, ...weakLens]
       : reason === "series" ? [...fromClaude, ...strongLens, ...weakLens] : [...strongLens, ...fromClaude, ...weakLens];
     const seen = new Set();
     list = list.filter((c) => { const k = words(c.title_en || c.title).join(" "); if (!k || seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4);
@@ -992,12 +1008,20 @@ ${langRule()}`;
     list.forEach((cand) => {
       const source = SOURCE[cand.match](cand);
       const b = el("button", "cand has-img", `<span class="cpic"><span class="cimg ph" aria-hidden="true"></span><span class="cap"></span></span><span class="ctext"><span class="t" dir="auto">${esc(cand.title)}</span><span class="small muted" dir="auto">${esc([cand.artist, cand.held_by, cand.date].filter(Boolean).join(" · "))}</span><span class="small src ${cand.match === "similar" ? "weak" : ""}">${esc(source)}</span>${cand.tell ? `<span class="small tell">${esc(cand.tell)}</span>` : ""}</span>`);
+      const failed = [];
       const setPic = (url, from) => {
         const box = b.querySelector(".cpic");
         if (!url) { box.querySelector(".cimg").classList.add("none"); box.querySelector(".cap").textContent = "No picture"; return; }
         const im = new Image(); im.className = "cimg"; im.alt = ""; im.referrerPolicy = "no-referrer";
         im.onload = () => { box.querySelector(".cimg").replaceWith(im); box.querySelector(".cap").textContent = from ? "Picture: " + from : ""; };
-        im.onerror = () => setPic(null);
+        im.onerror = () => {
+          // Some sites refuse to show their pictures elsewhere. Ask the backend for another source once.
+          failed.push(url);
+          if (failed.length > 1 || mode() !== "invite") return setPic(null);
+          api("/api/thumbs", { method: "POST", body: JSON.stringify({ items: [{ title: cand.title_en || cand.title, artist: cand.artist_en || cand.artist, url: cand.match === "exact" ? cand.url : null, skip: failed }] }) })
+            .then((res) => { const t = res.items?.[0]; setPic(t?.image && !failed.includes(t.image) ? t.image : null, t?.from); })
+            .catch(() => setPic(null));
+        };
         im.src = url;
       };
       if (cand.image) setPic(cand.image, cand.imageSource || cand.host);
@@ -1015,13 +1039,14 @@ ${langRule()}`;
     // Reference pictures for suggestions that came without one.
     if (needPics.length) {
       if (mode() === "invite") {
-        api("/api/thumbs", { method: "POST", body: JSON.stringify({ items: needPics.map(({ cand }) => ({ title: cand.title_en || cand.title, artist: cand.artist_en || cand.artist })) }) })
-          .then((res) => needPics.forEach(({ setPic }, i) => setPic(res.items?.[i]?.image || null, "Wikipedia")))
+        api("/api/thumbs", { method: "POST", body: JSON.stringify({ items: needPics.map(({ cand }) => ({ title: cand.title_en || cand.title, artist: cand.artist_en || cand.artist, url: cand.match === "exact" ? cand.url : null })) }) })
+          .then((res) => needPics.forEach(({ setPic }, i) => setPic(res.items?.[i]?.image || null, res.items?.[i]?.from || "Wikipedia")))
           .catch(() => needPics.forEach(({ setPic }) => setPic(null)));
       } else needPics.forEach(({ setPic }) => setPic(null));
     }
     const g = $("#pick-general");
     if (reason === "series") { g.textContent = "Not sure, tell me about the series"; g.onclick = () => { updateScan({ picked: "series", pickedReason: reason }); openPlayer(r, "series"); }; }
+    else if (reason === "notthis") { g.textContent = "Go back to the first answer"; g.onclick = () => openPlayer(r, "identified"); }
     else { g.textContent = "None of these"; g.onclick = () => { updateScan({ picked: "none", pickedReason: reason }); openRefuse(r); }; }
     show("pick");
   }
@@ -1034,13 +1059,27 @@ ${langRule()}`;
   }
 
   // ---------- player ----------
+  function checkChip(check) {
+    return check === "agree" ? `<span class="chip ok"><span class="dot"></span>Two checks agree</span>`
+      : check === "pending" ? `<span class="chip"><span class="dot"></span>Identified</span>`
+      : check === "disagree" ? `<span class="chip warn"><span class="dot"></span>Checks differ</span>`
+      : `<span class="chip"><span class="dot"></span>Identified</span>`;
+  }
+  function updateCheckChip(r) {
+    $("#tier-chip").innerHTML = checkChip(r.check);
+    const L = current.lens || {};
+    const others = ((L.ok && L.candidates) || []).filter((c) => c.match === "exact" && !sameWork(r.title_en || r.title, r.artist_en || r.artist, c.title + " " + (c.artist || "")));
+    $("#p-alt").hidden = !(r.check === "disagree" && others.length);
+    $("#p-alt").onclick = () => { player.stop(); openPicker(r, "notthis"); };
+  }
   function openPlayer(r, mode) {
     $("#player-img").src = photo.url;
     const isSeries = mode === "series";
     $("#tier-chip").innerHTML = isSeries ? `<span class="chip warn"><span class="dot"></span>Series only</span>`
       : mode === "confirmed" ? `<span class="chip"><span class="dot"></span>Picked by you</span>`
-      : r.check === "agree" ? `<span class="chip ok"><span class="dot"></span>Two checks agree</span>`
-      : `<span class="chip warn"><span class="dot"></span>One check only</span>`;
+      : checkChip(r.check);
+    $("#p-alt").hidden = true;
+    if (mode === "identified" && r.check && r.check !== "pending") setTimeout(() => updateCheckChip(r), 0);
     $("#p-title").textContent = isSeries ? (r.series_name || "A series") : (r.title || "Untitled");
     $("#p-artist").textContent = r.artist || "Artist not identified";
     const dl = $("#p-facts"); dl.innerHTML = "";

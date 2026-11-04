@@ -189,19 +189,61 @@ Reply with JSON only.`;
     const order = { exact: 0, guess: 1, similar: 2 };
     out.sort((a, b) => order[a.match] - order[b.match]);
     // Pages often carry no usable picture; look one up on Wikipedia so people can compare.
-    const pics = await thumbs(env, { items: out.filter((c) => !c.image).map((c) => ({ title: c.title, artist: c.artist })) });
+    const pics = await thumbs(env, { items: out.filter((c) => !c.image).map((c) => ({ title: c.title, artist: c.artist, url: c.match === "exact" ? c.url : null })) });
     let k = 0;
-    for (const c of out) if (!c.image) { const t = pics.items[k++]; if (t?.image) { c.image = t.image; c.imageSource = "Wikipedia"; } }
+    for (const c of out) if (!c.image) { const t = pics.items[k++]; if (t?.image) { c.image = t.image; c.imageSource = t.from || "Wikipedia"; } }
     return out;
   } catch (e) { return []; }
 }
 
 // ---------- reference pictures from Wikipedia ----------
 // Returns a thumbnail only when the article title clearly matches the work, so we don't show the wrong picture.
+// Tries, in order: the page's own share picture, a matching Wikipedia article, a matching Wikimedia Commons file.
 async function thumbs(env, b) {
   const items = Array.isArray(b.items) ? b.items.slice(0, 6) : [];
-  const results = await Promise.all(items.map((it) => wikiThumb(env, String(it.title || "").slice(0, 150), String(it.artist || "").slice(0, 100)).catch(() => null)));
+  const results = await Promise.all(items.map(async (it) => {
+    const title = String(it.title || "").slice(0, 150), artist = String(it.artist || "").slice(0, 100);
+    const skip = new Set(Array.isArray(it.skip) ? it.skip : []); // pictures that already failed to load on the phone
+    const tries = [() => pageImage(env, it.url), () => wikiThumb(env, title, artist), () => commonsThumb(env, title, artist)];
+    for (const t of tries) {
+      const r = await t().catch(() => null);
+      if (r?.image && !skip.has(r.image)) return r;
+    }
+    return null;
+  }));
   return { items: results.map((r) => r || { image: null }) };
+}
+// The Open Graph picture a page offers for sharing. Museum collection pages almost always set one.
+async function pageImage(env, url) {
+  if (!url || !/^https:\/\//.test(url)) return null;
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3500);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { "user-agent": "Mozilla/5.0 (compatible; ArtEar/0.1; museum audio guide test)", accept: "text/html" }, redirect: "follow" });
+    if (!r.ok || !(r.headers.get("content-type") || "").includes("html")) return null;
+    const html = (await r.text()).slice(0, 300000);
+    const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*>/i);
+    const c = m && m[0].match(/content=["']([^"']+)["']/i);
+    if (!c) return null;
+    const img = new URL(c[1].replace(/&amp;/g, "&"), r.url).href;
+    let host = ""; try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
+    return /^https:\/\//.test(img) ? { image: img, from: host } : null;
+  } finally { clearTimeout(t); }
+}
+async function commonsThumb(env, title, artist) {
+  if (!words(title).length) return null;
+  const q = new URLSearchParams({ action: "query", format: "json", generator: "search", gsrsearch: `${title} ${artist}`.trim(), gsrlimit: "5",
+    gsrnamespace: "6", prop: "imageinfo", iiprop: "url|mime", iiurlwidth: "320" });
+  const r = await fetch(`${env.COMMONS_URL || "https://commons.wikimedia.org/w/api.php"}?${q}`, { headers: { "user-agent": "ArtEar/0.1 (museum audio guide test)" } });
+  if (!r.ok) return null;
+  const pages = Object.values((await r.json()).query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  const want = words(title);
+  for (const pg of pages) {
+    const info = pg.imageinfo?.[0];
+    if (!info?.thumburl || !/^image\/(jpeg|png|webp)/.test(info.mime || "")) continue;
+    const have = new Set(words(pg.title.replace(/^File:/, "")));
+    if (want.filter((w) => have.has(w)).length / want.length >= 0.6) return { image: info.thumburl, from: "Wikimedia Commons" };
+  }
+  return null;
 }
 const words = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !["the", "a", "an", "of", "and", "in", "on", "de", "la", "le"].includes(w));
 async function wikiThumb(env, title, artist) {
@@ -215,7 +257,7 @@ async function wikiThumb(env, title, artist) {
   for (const pg of pages) {
     const have = new Set(words(pg.title));
     const hit = want.filter((w) => have.has(w)).length / want.length;
-    if (hit >= 0.6 && pg.thumbnail?.source) return { image: pg.thumbnail.source, page: pg.title };
+    if (hit >= 0.6 && pg.thumbnail?.source) return { image: pg.thumbnail.source, page: pg.title, from: "Wikipedia" };
   }
   return null;
 }
