@@ -106,7 +106,7 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
     <section>
       <h2>Invites</h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Link</th><th>Model</th><th class="num">Scans</th><th class="num">Today</th><th class="num">Spent</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Link</th><th>Model</th><th class="num">Scans</th><th class="num">Today / limit</th><th class="num">Spent</th><th></th></tr></thead>
         <tbody id="invites"></tbody>
       </table></div>
     </section>
@@ -189,7 +189,7 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
       return `<tr><td class="${i.active ? "" : "off"}">${esc(i.name)}<br><span class="code note">${i.code}</span></td>
         <td><span class="link">${esc(link)}</span><br><button class="btn ghost small" data-copy="${esc(link)}">Copy link</button></td>
         <td><select data-model="${i.code}" aria-label="Model for ${esc(i.name)}" style="min-height:36px;padding:4px 8px;font-size:13px">${modelOptions(i.model)}</select></td>
-        <td class="num">${i.scans}</td><td class="num">${i.calls_today} / ${i.daily_limit}</td><td class="num">${usd(i.usd)}</td>
+        <td class="num">${i.scans}</td><td class="num" style="white-space:nowrap">${i.calls_today} / <input data-limit="${i.code}" type="number" min="1" max="500" value="${i.daily_limit}" aria-label="Daily request limit for ${esc(i.name)}" style="width:72px;min-height:34px;padding:4px 6px;font-size:13px;text-align:right"></td><td class="num">${usd(i.usd)}</td>
         <td><button class="btn ghost small" data-toggle="${i.code}" data-active="${i.active}">${i.active ? "Switch off" : "Switch on"}</button></td></tr>`;
     }).join("") || `<tr><td colspan="7" class="muted">No invites yet. Create one above.</td></tr>`;
 
@@ -309,6 +309,14 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
     } catch (x) { msg.textContent = x.message; msg.className = "msg err"; msg.hidden = false; }
   };
   document.addEventListener("change", async (e) => {
+    const lim = e.target.closest("[data-limit]");
+    if (lim) {
+      const n = Math.max(1, Math.min(500, Number(lim.value) || 0));
+      lim.disabled = true;
+      try { await call("/api/admin/invites/" + lim.dataset.limit, { method: "PATCH", body: JSON.stringify({ dailyLimit: n }) }); lim.value = n; lim.style.outline = "2px solid var(--ok)"; setTimeout(() => (lim.style.outline = ""), 1200); }
+      catch (x) { alert(x.message); }
+      lim.disabled = false; return;
+    }
     const m = e.target.closest("[data-model]"); if (!m) return;
     m.disabled = true;
     try { await call("/api/admin/invites/" + m.dataset.model, { method: "PATCH", body: JSON.stringify({ model: m.value || null }) }); } catch (x) { alert(x.message); }
