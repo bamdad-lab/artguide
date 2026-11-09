@@ -130,6 +130,19 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
     </section>
 
     <section>
+      <h2>Fix where scans were taken</h2>
+      <div class="row">
+        <label style="flex:1 1 160px">Person<select id="rl-person"><option value="">Everyone</option></select></label>
+        <label style="flex:0 1 170px">Date<input id="rl-date" type="date"></label>
+        <label style="flex:1 1 200px">Museum or gallery<input id="rl-museum" placeholder="e.g. Gagosian"></label>
+        <label style="flex:1 1 160px">Exhibition or room (optional)<input id="rl-exh"></label>
+        <button class="btn" id="rl-go">Relabel</button>
+      </div>
+      <p class="note">Sets every scan by that person on that day (your phone's local date) as taken at that museum. The correction sticks even if they edit the scan later.</p>
+      <p class="msg" id="rl-msg" hidden></p>
+    </section>
+
+    <section>
       <div class="row" style="justify-content:space-between;align-items:center"><h2>Latest scans</h2>
         <div class="row"><button class="btn ghost" id="refresh">Refresh</button><button class="btn" id="export">Download all (JSON with photos)</button></div></div>
       <div class="scans" id="scans"></div>
@@ -184,6 +197,9 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
       [inv.lensEnabled ? usd(inv.lensUsd) : "Off", inv.lensEnabled ? "spent on image search" : "image search (add GOOGLE_VISION_API_KEY)"],
     ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
 
+    const sel = $("#rl-person"), keep = sel.value;
+    sel.innerHTML = `<option value="">Everyone</option>` + inv.invites.map((i) => `<option value="${i.code}">${esc(i.name)}</option>`).join("");
+    sel.value = keep;
     $("#invites").innerHTML = inv.invites.map((i) => {
       const link = APP + "?invite=" + i.code;
       return `<tr><td class="${i.active ? "" : "off"}">${esc(i.name)}<br><span class="code note">${i.code}</span></td>
@@ -323,6 +339,16 @@ dialog.detail::backdrop { background: rgba(0,0,0,.45); }
     m.disabled = false;
   });
   $("#refresh").onclick = load;
+  $("#rl-go").onclick = async () => {
+    const msg = $("#rl-msg"), d = $("#rl-date").value, museum = $("#rl-museum").value.trim();
+    const say = (t, bad) => { msg.textContent = t; msg.className = bad ? "msg err" : "msg"; msg.hidden = false; };
+    if (!d || !museum) return say("Pick a date and type the museum or gallery.", true);
+    const from = new Date(d + "T00:00:00").getTime(), to = from + 86400000;
+    try {
+      const r = await call("/api/admin/relabel", { method: "POST", body: JSON.stringify({ from, to, code: $("#rl-person").value || null, museum, exhibition: $("#rl-exh").value }) });
+      say(`Relabelled ${r.updated} scan${r.updated === 1 ? "" : "s"} as ${museum}.`); load();
+    } catch (x) { say(x.message, true); }
+  };
   $("#export").onclick = async () => {
     const b = $("#export"); b.disabled = true; b.textContent = "Preparing…";
     try {

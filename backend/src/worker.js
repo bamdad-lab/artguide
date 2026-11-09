@@ -45,6 +45,7 @@ async function route(req, env) {
     if ((mm = p.match(/^\/api\/admin\/invites\/([A-Z0-9]+)$/)) && m === "PATCH") return json(await updateInvite(env, mm[1], await body(req)));
     if (p === "/api/admin/scans" && m === "GET") return json(await adminScans(env, url.searchParams.get("photos") === "1"));
     if ((mm = p.match(/^\/api\/admin\/photos\/([\w-]+)$/)) && m === "GET") return photo(env, mm[1], null);
+    if (p === "/api/admin/relabel" && m === "POST") return json(await relabel(env, await body(req)));
     throw err(404, "not_found", "Unknown admin route");
   }
 
@@ -285,6 +286,12 @@ async function putScan(env, code, id, b, exists) {
   const data = b.data && typeof b.data === "object" ? b.data : null;
   if (!data) throw err(400, "invalid_request", "Missing data");
   delete data.photo;
+  delete data.adminOverride;
+  if (exists) {
+    const prev = await env.DB.prepare("SELECT data FROM scans WHERE id = ?").bind(id).first();
+    const ov = prev && JSON.parse(prev.data).adminOverride;
+    if (ov) Object.assign(data, ov, { adminOverride: ov });
+  }
   const text = JSON.stringify(data);
   if (text.length > 200_000) throw err(413, "too_large", "Scan record too large");
   let photoBytes = null;
@@ -354,6 +361,27 @@ async function adminScans(env, withPhotos) {
     ...JSON.parse(r.data), id: r.id, invite: r.code, person: r.name, hasPhoto: !!r.has_photo,
     ...(withPhotos && r.photo ? { photo: "data:image/jpeg;base64," + b64(new Uint8Array(r.photo)) } : {}),
   }));
+}
+
+// Correct where a batch of scans was taken, e.g. all of one person's scans on one day.
+async function relabel(env, b) {
+  const from = Number(b.from), to = Number(b.to);
+  if (!(from > 0 && to > from && to - from <= 7 * 86400000)) throw err(400, "invalid_request", "Pick a date range of up to a week");
+  const setting = b.setting === "home" ? "home" : "museum";
+  const museum = String(b.museum || "").trim().slice(0, 120);
+  if (setting === "museum" && !museum) throw err(400, "invalid_request", "Museum or gallery name required");
+  const ov = setting === "museum"
+    ? { setting, museum, exhibition: String(b.exhibition || "").trim().slice(0, 120) || null, homeKind: null }
+    : { setting, museum: null, exhibition: null, homeKind: ["print", "book", "screen"].includes(b.homeKind) ? b.homeKind : "print" };
+  ov.relabelledAt = Date.now();
+  const q = b.code ? "SELECT id, data FROM scans WHERE created_at >= ? AND created_at < ? AND code = ?" : "SELECT id, data FROM scans WHERE created_at >= ? AND created_at < ?";
+  const rows = (await env.DB.prepare(q).bind(...(b.code ? [from, to, String(b.code)] : [from, to])).all()).results;
+  for (const r of rows) {
+    const d = JSON.parse(r.data);
+    Object.assign(d, ov, { adminOverride: ov });
+    await env.DB.prepare("UPDATE scans SET data = ?, updated_at = ? WHERE id = ?").bind(JSON.stringify(d), Date.now(), r.id).run();
+  }
+  return { updated: rows.length };
 }
 
 // ---------- helpers ----------
