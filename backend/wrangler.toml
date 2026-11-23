@@ -8,6 +8,8 @@ workers_dev = true
 ALLOWED_ORIGINS = "https://bamdad-lab.github.io"
 # Stop all Claude calls for the rest of the UTC day once this many dollars are spent.
 DAILY_USD_CAP = "5"
+# "1" pauses the test: no scans or sign-ins for testers; admin still works. Set "0" to resume.
+PAUSED = "1"
 
 [[d1_databases]]
 binding = "DB"

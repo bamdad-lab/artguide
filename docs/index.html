@@ -650,7 +650,7 @@ table.mt td.bad { color: var(--stop); font-weight: 700; }
     try {
       const r = await fetch(API + "/api/me", { headers: { authorization: "Bearer " + code } });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { err.textContent = j.error?.type === "disabled" ? "This invite has been switched off. Ask the organiser." : "That code wasn't recognised. Check it and try again."; return; }
+      if (!r.ok) { err.textContent = j.error?.type === "paused" ? j.error.message : j.error?.type === "disabled" ? "This invite has been switched off. Ask the organiser." : "That code wasn't recognised. Check it and try again."; return; }
       ls("ge-invite", code); ls("ge-invite-name", j.name || ""); setKey("");
       err.hidden = true; $("#invite").value = "";
       // Keep the code in the address so "Add to Home Screen" saves it: the installed app has its own storage.
@@ -875,7 +875,7 @@ ${langRule()}`;
   $("#ident-retry").onclick = () => show("scan");
   function steps(list, target) { const ol = target || $("#steps"); ol.innerHTML = ""; return list.map((t) => { const li = el("li", "", `<span class="mark"></span><span><span>${esc(t)}</span><br><span class="detail"></span></span>`); ol.appendChild(li); return li; }); }
   const mark = (li, cls, detail) => { li.className = cls; if (detail != null) li.querySelector(".detail").textContent = detail; };
-  const errText = (e) => ["daily_limit", "budget", "disabled"].includes(e.type) ? e.message
+  const errText = (e) => ["daily_limit", "budget", "disabled", "paused"].includes(e.type) ? e.message
     : e.status === 401 && mode() === "invite" ? "Your invite code stopped working. Ask the organiser."
     : e.status === 401 ? "The API key was rejected. Replace it in Settings."
     : e.status === 429 ? "Rate limit hit. Wait a minute, then retake."

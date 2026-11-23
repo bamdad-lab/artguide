@@ -1,5 +1,7 @@
 # Art guide, Phase 0
 
+> **Paused.** See [RESUME.md](RESUME.md) for what exists and how to switch it back on.
+
 Vertical slice from the build spec: photo in, cross-checked identification,
 canonical record, grounded script, MP3 out. Python backend and CLI only. No phone app yet.
 

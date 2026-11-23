@@ -389,6 +389,8 @@ const logCall = (env, code, model, served, input, output, searches, usd, status)
   env.DB.prepare("INSERT INTO calls (code, at, model, served, input_tokens, output_tokens, searches, usd, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
     .bind(code, Date.now(), model, served, input, output, searches, usd, status).run();
 async function requireInvite(req, env) {
+  // While paused, testers can't scan or sign in; the admin page still works for exporting.
+  if (env.PAUSED === "1") throw err(503, "paused", "The Art Ear test has ended. Thank you for taking part!");
   const code = bearer(req).toUpperCase();
   if (!/^[A-Z0-9]{6,20}$/.test(code)) throw err(401, "unauthorized", "Invite code missing or malformed");
   const inv = await env.DB.prepare("SELECT code, name, daily_limit, active, model FROM invites WHERE code = ?").bind(code).first();
